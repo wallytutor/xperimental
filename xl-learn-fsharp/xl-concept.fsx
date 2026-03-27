@@ -1,3 +1,7 @@
+// #r "library-xl/bin/Debug/net10.0/library-xl.dll"
+#load "library-xl/Library.fs"
+open library_xl
+
 module Constants =
     type ElementData =
         { Symbol: string; Number: int; MolarMass: float }
