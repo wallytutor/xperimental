@@ -1,0 +1,7 @@
+stop.ps1
+solution_*
+volume_*
+*.csv
+*.su2
+log.*
+*.log
