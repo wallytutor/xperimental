@@ -23,6 +23,9 @@ dotnet sln add 'xl_database/xl_database.csproj'
 
 # Add the database dependency to the project:
 dotnet add package LiteDB --project 'xl_database/xl_database.csproj'
+# Manually add the <CopyLocalLockFileAssemblies> property to the above
+# project file to ensure that the LiteDB assembly is copied to the
+# output directory and you can use it from Python. See file for details.
 
 # Restore dependencies and build:
 dotnet restore
