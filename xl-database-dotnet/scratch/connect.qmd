@@ -23,7 +23,7 @@ def load_project(
     load("coreclr", runtime_config="runtime.json")
 
     import clr
-    clr.AddReference(get_project())
+    clr.AddReference(name)
 ```
 
 ```{python}
@@ -32,8 +32,23 @@ load_project()
 
 ```{python}
 from xl_database import XlDatabase
+from xl_database import Equipment
+from xl_database import AnalysisType
+from xl_database import AnalysisResult
 ```
 
 ```{python}
 db = XlDatabase()
+```
+
+
+```{python}
+sem = Equipment(
+    name         = "SEM",
+    model        = "Model XYZ",
+    manufacturer = "SEM Corp",
+    serialNumber = "12345"
+)
+
+sem
 ```

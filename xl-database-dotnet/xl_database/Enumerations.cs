@@ -1,4 +1,4 @@
-namespace XlDatase;
+namespace xl_database;
 
 public enum AnalysisType
 {
