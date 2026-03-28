@@ -1,0 +1,51 @@
+# xl-database-dotnet
+
+A minimal .NET project to illustrate how to create a .NET assembly that can be used from Python with Python.NET. This is intended as a demo for the use of .NET assemblies in the context of research projects requiring a simple local database.
+
+Target Windows 11 running from PowerShell.
+
+References:
+
+- [Python.NET documentation](https://pythonnet.github.io/)
+- [LiteDB documentation](https://www.litedb.org/docs/)
+
+## Creating a similar project
+
+- Project created with the .NET CLI with the following steps:
+
+```bash
+# Create a new solution in the current directory:
+dotnet new sln -n xl-database-fsharp -o .
+
+# Create a shared library:
+dotnet new classlib -o 'xl_database'
+dotnet sln add 'xl_database/xl_database.csproj'
+
+# Add the database dependency to the project:
+dotnet add package LiteDB --project 'xl_database/xl_database.csproj'
+
+# Restore dependencies and build:
+dotnet restore
+dotnet build
+```
+
+## Basic usage from Python
+
+- Prepare the interaction through Python with the following steps:
+
+```bash
+# Create a virtual environment:
+python -m venv scratch/.venv
+
+# Activate the virtual environment:
+scratch\.venv\Scripts\Activate.ps1
+
+# Update pip:
+python -m pip install --upgrade pip
+
+# Install the Python.NET package:
+python -m pip install 'pythonnet>=3.0.0'
+
+# Install the IPython kernel package to enable notebook support:
+python -m pip install 'ipykernel'
+```
