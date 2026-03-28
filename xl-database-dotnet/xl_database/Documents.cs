@@ -23,7 +23,7 @@ public class AnalysisResult
     /// <summary>
     /// The machine or equipment used to perform the analysis.
     /// </summary>
-    public Equipment Machine { get; set; }
+    public string MachineId { get; set; }
 
     /// <summary>
     /// The date and time when the analysis was performed. This should
@@ -40,16 +40,16 @@ public class AnalysisResult
     public AnalysisResult(
         string sampleId,
         AnalysisType type,
-        Equipment machine,
+        string machineId,
         string data
         )
     {
         Id   = Guid.NewGuid().ToString();
         Date = DateTime.UtcNow;
 
-        SampleId = sampleId;
-        Type     = type;
-        Machine  = machine;
-        Data     = data;
+        SampleId  = sampleId;
+        Type      = type;
+        MachineId = machineId;
+        Data      = data;
     }
 }

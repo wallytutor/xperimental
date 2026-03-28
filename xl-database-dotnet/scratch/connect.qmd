@@ -50,15 +50,18 @@ sem = Equipment(
 )
 
 db.Equipment.Insert(sem)
+
+list(db.Equipment.FindAll())
 ```
 
 ```{python}
-    # .OrderBy("Name")
-    # .Limit(10)
-items = (
+items = list(
     db.Equipment.Query()
-    .Where("Name LIKE 'S%'")
-    .ToList()
+        .Where("$.Name = 'SEM'")
+        # .OrderBy("$.Name")
+        .Limit(10)
+        .ToList()
 )
-list(items)
+
+items[0].Id
 ```

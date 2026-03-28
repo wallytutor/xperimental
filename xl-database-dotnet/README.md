@@ -8,6 +8,7 @@ References:
 
 - [Python.NET documentation](https://pythonnet.github.io/)
 - [LiteDB documentation](https://www.litedb.org/docs/)
+- [LiteDB Studio](https://github.com/litedb-org/LiteDB.Studio)
 
 ## Creating a similar project
 
@@ -52,3 +53,9 @@ python -m pip install 'pythonnet>=3.0.0'
 # Install the IPython kernel package to enable notebook support:
 python -m pip install 'ipykernel'
 ```
+
+Now you can use the .NET assembly from Python. See the [scratch/connect.qmd](scratch/connect.qmd) file for examples of how to do this.
+
+## Development notes
+
+- Objects to be serialized with LiteDB must have a public properties with getters (and optionally setters). Notice that `readonly` properties are not supported.
