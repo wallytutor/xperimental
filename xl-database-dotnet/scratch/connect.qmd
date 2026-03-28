@@ -35,6 +35,14 @@ from xl_database import XlDatabase
 from xl_database import Equipment
 from xl_database import AnalysisType
 from xl_database import AnalysisResult
+
+# XXX This must come after loading the assembly!
+from LiteDB import BsonExpression
+```
+
+```{python}
+def expression(text: str) -> BsonExpression:
+    return BsonExpression.Create(text)
 ```
 
 ```{python}
@@ -57,11 +65,24 @@ list(db.Equipment.FindAll())
 ```{python}
 items = list(
     db.Equipment.Query()
-        .Where("$.Name = 'SEM'")
-        # .OrderBy("$.Name")
+        .Where(expression("$.Name = 'SEM'"))
+        .OrderBy(expression("$.Name"))
         .Limit(10)
         .ToList()
 )
 
 items[0].Id
+```
+
+```{python}
+result = AnalysisResult(
+    type      = AnalysisType.SEM,
+    machineId = sem.Id,
+    sampleId  = "Sample123",
+    data      = "Analysis data goes here..."
+)
+
+db.AnalysisResults.Insert(result)
+
+list(db.AnalysisResults.FindAll())
 ```
