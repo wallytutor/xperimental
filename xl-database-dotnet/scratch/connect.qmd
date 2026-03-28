@@ -41,7 +41,6 @@ from xl_database import AnalysisResult
 db = XlDatabase()
 ```
 
-
 ```{python}
 sem = Equipment(
     name         = "SEM",
@@ -50,5 +49,16 @@ sem = Equipment(
     serialNumber = "12345"
 )
 
-sem
+db.Equipment.Insert(sem)
+```
+
+```{python}
+    # .OrderBy("Name")
+    # .Limit(10)
+items = (
+    db.Equipment.Query()
+    .Where("Name LIKE 'S%'")
+    .ToList()
+)
+list(items)
 ```

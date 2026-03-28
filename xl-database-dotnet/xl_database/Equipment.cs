@@ -2,6 +2,7 @@ namespace xl_database;
 
 public class Equipment
 {
+    public readonly string Id = Guid.NewGuid().ToString();
     public readonly string Name;
     public readonly string Model;
     public readonly string Manufacturer;
