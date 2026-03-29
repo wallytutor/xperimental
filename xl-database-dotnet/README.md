@@ -9,6 +9,7 @@ References:
 - [Python.NET documentation](https://pythonnet.github.io/)
 - [LiteDB documentation](https://www.litedb.org/docs/)
 - [LiteDB Studio](https://github.com/litedb-org/LiteDB.Studio)
+- [OpenAPI](https://aka.ms/aspnet/openapi)
 - [Ollama](https://github.com/ollama/ollama)
 
 ## Creating a similar project
