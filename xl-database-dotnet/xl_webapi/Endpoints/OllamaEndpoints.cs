@@ -15,7 +15,7 @@ public static class OllamaEndpoints
             OllamaPullRequest request) =>
         {
             _ = request;
-            var status = await ollama.OllamaPull();
+            var status = await ollama.PullAsync();
             return Results.Ok(new { Status = status });
         }).WithPullDocs();
 

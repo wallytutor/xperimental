@@ -3,9 +3,9 @@ using xl_database;
 var builder = WebApplication.CreateBuilder(args);
 var config  = builder.Configuration;
 
-var dataFile  = config.GetValue<string>("Database") ?? "sandbox.db";
-var database  = new XlDatabase(dataFile);
 var ollamaCnf = config.GetSection("Ollama");
+var dataFile  = config.GetValue<string>("Database", "sandbox.db");
+var database  = new XlDatabase(dataFile);
 
 builder.Services.AddOpenApi();
 builder.Services.AddSingleton(database);
