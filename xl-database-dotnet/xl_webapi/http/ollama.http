@@ -1,4 +1,17 @@
+@xl_webapi_HostAddress = http://localhost:5031
 @ollama_HostAddress = http://localhost:11434
+
+########################################################################
+
+### Test Ollama generation
+POST {{xl_webapi_HostAddress}}/ollama/generate
+Content-Type: application/json
+
+{
+    "prompt": "What is scanning electron microscopy?"
+}
+
+########################################################################
 
 ### https://docs.ollama.com/api/introduction
 GET {{ollama_HostAddress}}/

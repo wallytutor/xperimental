@@ -2,6 +2,7 @@ using xl_database;
 
 public static class EndpointMetadata
 {
+    #region Equipment endpoints
     public static RouteHandlerBuilder WithGetAllEquipmentDocs(this RouteHandlerBuilder builder)
     {
         return builder
@@ -42,7 +43,9 @@ public static class EndpointMetadata
             .Produces(StatusCodes.Status204NoContent)
             .Produces(StatusCodes.Status404NotFound);
     }
+    #endregion Equipment endpoints
 
+    #region AnalysisResult endpoints
     public static RouteHandlerBuilder WithGetAllAnalysisResultsDocs(this RouteHandlerBuilder builder)
     {
         return builder
@@ -83,4 +86,17 @@ public static class EndpointMetadata
             .Produces(StatusCodes.Status204NoContent)
             .Produces(StatusCodes.Status404NotFound);
     }
+    #endregion AnalysisResult endpoints
+
+    #region Ollama endpoints
+    public static RouteHandlerBuilder WithGenerateDocs(this RouteHandlerBuilder builder)
+    {
+        return builder
+            .WithName("Generate")
+            .WithSummary("Generate text from a prompt using Ollama")
+            .WithDescription("Sends a prompt to the configured Ollama model and returns the generated response. Example body: { \"prompt\": \"What is SEM?\" }")
+            .Accepts<OllamaGenerateRequest>("application/json")
+            .Produces(StatusCodes.Status200OK);
+    }
+    #endregion Ollama endpoints
 }

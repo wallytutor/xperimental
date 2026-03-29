@@ -1,11 +1,16 @@
 using xl_database;
 
 #region builder
-var database = new XlDatabase("equipment.db");
 var builder = WebApplication.CreateBuilder(args);
+var config  = builder.Configuration;
+
+var dataFile  = config.GetValue<string>("Database") ?? "sandbox.db";
+var database  = new XlDatabase(dataFile);
+var ollamaCnf = config.GetSection("Ollama");
 
 builder.Services.AddOpenApi();
 builder.Services.AddSingleton(database);
+builder.Services.Configure<OllamaOptions>(ollamaCnf);
 builder.Services.AddHttpClient<OllamaClient>();
 #endregion builder
 
@@ -143,6 +148,42 @@ analysisResults.MapDelete("/{id}", (XlDatabase database, string id) =>
 #endregion analysis result endpoints
 
 #region ollama endpoints
+app.MapPost("/ollama/generate", async (
+    OllamaClient ollama,
+    OllamaGenerateRequest request) =>
+{
+    var response = await ollama.GenerateAsync(request.Prompt);
+    return Results.Ok(new { request.Prompt, Response = response });
+}).WithGenerateDocs();
+#endregion ollama endpoints
+
+app.Run();
+
+#region request records
+public record EquipmentRequest(
+    string Name,
+    string Model,
+    string Manufacturer,
+    string SerialNumber,
+    string? Id = null,
+    DateTime? CreatedOn = null,
+    DateTime? UpdatedOn = null
+);
+
+public record AnalysisResultRequest(
+    AnalysisType Type,
+    string MachineId,
+    string SampleId,
+    string Data,
+    string? Id = null,
+    DateTime? CreatedOn = null,
+    DateTime? UpdatedOn = null
+);
+
+public record OllamaGenerateRequest(string Prompt);
+#endregion request records
+
+// XXX keep these for ideas for now
 // app.MapPost("/results/with-ai", async (
 //     HttpContext ctx,
 //     ExperimentRepository repo,
@@ -180,26 +221,3 @@ analysisResults.MapDelete("/{id}", (XlDatabase database, string id) =>
 //     var results = repo.Query(filter); // you'd implement this
 //     return Results.Ok(results);
 // });
-#endregion ollama endpoints
-
-app.Run();
-
-public record EquipmentRequest(
-    string Name,
-    string Model,
-    string Manufacturer,
-    string SerialNumber,
-    string? Id = null,
-    DateTime? CreatedOn = null,
-    DateTime? UpdatedOn = null
-);
-
-public record AnalysisResultRequest(
-    AnalysisType Type,
-    string MachineId,
-    string SampleId,
-    string Data,
-    string? Id = null,
-    DateTime? CreatedOn = null,
-    DateTime? UpdatedOn = null
-);
