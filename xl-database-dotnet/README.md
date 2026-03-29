@@ -29,6 +29,12 @@ dotnet add package LiteDB --project 'xl_database/xl_database.csproj'
 # project file to ensure that the LiteDB assembly is copied to the
 # output directory and you can use it from Python. See file for details.
 
+# Create a web API project to test the assembly:
+dotnet new webapi -n 'xl_webapi' --no-https
+dotnet add 'xl_webapi/xl_webapi.csproj' `
+    reference 'xl_database/xl_database.csproj'
+dotnet sln add 'xl_webapi/xl_webapi.csproj'
+
 # Restore dependencies and build:
 dotnet restore
 dotnet build

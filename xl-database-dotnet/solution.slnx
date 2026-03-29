@@ -1,3 +1,4 @@
 <Solution>
   <Project Path="xl_database/xl_database.csproj" />
+  <Project Path="xl_webapi/xl_webapi.csproj" />
 </Solution>
