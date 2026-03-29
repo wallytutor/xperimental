@@ -2,6 +2,9 @@
 **/bin/*
 **/obj/*
 
+# Project distribution files:
+**/dist/*
+
 # Ionide files
 .fake
 

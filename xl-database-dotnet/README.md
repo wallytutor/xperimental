@@ -39,6 +39,9 @@ dotnet sln add 'xl_webapi/xl_webapi.csproj'
 # Restore dependencies and build:
 dotnet restore
 dotnet build
+
+# Prepare for distribution:
+.\publish.ps1 -SelfContained
 ```
 
 ## Basic usage from Python
