@@ -155,6 +155,14 @@ app.MapPost("/ollama/generate", async (
     var response = await ollama.GenerateAsync(request.Prompt);
     return Results.Ok(new { request.Prompt, Response = response });
 }).WithGenerateDocs();
+
+app.MapPost("/ollama/pull", async (
+    OllamaClient ollama,
+    OllamaPullRequest request) =>
+{
+    var status = await ollama.OllamaPull();
+    return Results.Ok(new { Status = status });
+}).WithPullDocs();
 #endregion ollama endpoints
 
 app.Run();
@@ -181,8 +189,11 @@ public record AnalysisResultRequest(
 );
 
 public record OllamaGenerateRequest(string Prompt);
+
+public record OllamaPullRequest();
 #endregion request records
 
+#region drafts
 // XXX keep these for ideas for now
 // app.MapPost("/results/with-ai", async (
 //     HttpContext ctx,
@@ -220,4 +231,4 @@ public record OllamaGenerateRequest(string Prompt);
 
 //     var results = repo.Query(filter); // you'd implement this
 //     return Results.Ok(results);
-// });
+#endregion drafts

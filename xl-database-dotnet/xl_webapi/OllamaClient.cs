@@ -1,6 +1,6 @@
 using Microsoft.Extensions.Options;
+using System.Net.Http.Json;
 using System.Text.Json;
-// using System.Net.Http.Json;
 
 public class OllamaOptions
 {
@@ -26,9 +26,9 @@ public class OllamaClient
         _http.BaseAddress = new Uri(_options.BaseAddress);
     }
 
-    private object GenerateRequest(string prompt)
+    public async Task<string> GenerateAsync(string prompt)
     {
-        return new {
+        var payload = new {
             model      = _options.Model,
             think      = _options.Think,
             raw        = _options.Raw,
@@ -36,15 +36,33 @@ public class OllamaClient
             stream     = false,
             prompt
         };
-    }
-
-    public async Task<string> GenerateAsync(string prompt)
-    {
-        var payload = GenerateRequest(prompt);
         var response = await _http.PostAsJsonAsync("/api/generate", payload);
         response.EnsureSuccessStatusCode();
 
         var json = await response.Content.ReadFromJsonAsync<JsonElement>();
         return json.GetProperty("response").GetString()!;
+    }
+
+    public async Task<string> OllamaPull()
+    {
+        // XXX: do not add arguments to this method! Only the configured
+        // model should be pulled, otherwise users could start pulling
+        // arbitrary models which could cause issues (size/safety/etc).
+        var payload = new
+        {
+            model = _options.Model,
+            stream = false
+        };
+
+        var response = await _http.PostAsJsonAsync("/api/pull", payload);
+        response.EnsureSuccessStatusCode();
+
+        var json = await response.Content.ReadFromJsonAsync<JsonElement>();
+        if (json.TryGetProperty("status", out var status))
+        {
+            return status.GetString() ?? "ok";
+        }
+
+        return json.ToString();
     }
 }

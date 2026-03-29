@@ -98,5 +98,15 @@ public static class EndpointMetadata
             .Accepts<OllamaGenerateRequest>("application/json")
             .Produces(StatusCodes.Status200OK);
     }
+
+    public static RouteHandlerBuilder WithPullDocs(this RouteHandlerBuilder builder)
+    {
+        return builder
+            .WithName("PullModel")
+            .WithSummary("Pull Ollama model")
+            .WithDescription("Pulls the configured Ollama model to the local runtime.")
+            .Accepts<OllamaPullRequest>("application/json")
+            .Produces(StatusCodes.Status200OK);
+    }
     #endregion Ollama endpoints
 }
