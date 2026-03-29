@@ -60,3 +60,5 @@ Now you can use the .NET assembly from Python. See the [scratch/connect.qmd](scr
 ## Development notes
 
 - Objects to be serialized with LiteDB must have a public properties with getters (and optionally setters). Notice that `readonly` properties are not supported.
+
+- To enable type-safe equality checks, we can use a generic interface `IDocument<TSelf>` that inherits from `IDocument` and defines a method `IsSameAs(TSelf item)`. This allows us to implement the method in each document class with the correct type, avoiding the need for type checks and casts. See the [Documents.cs](xl_database/Documents.cs) file for details.

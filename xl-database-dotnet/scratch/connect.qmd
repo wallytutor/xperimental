@@ -10,10 +10,13 @@ from database import (
 )
 ```
 
+Connecting to the database:
+
 ```{python}
 db = XlDatabase()
-list(db.GetAllEquipment())
 ```
+
+Adding new elements with `Insert` method:
 
 ```{python}
 sem = Equipment(
@@ -23,23 +26,6 @@ sem = Equipment(
     serialNumber = "12345"
 )
 
-db.InsertEquipment(sem)
-list(db.GetAllEquipment())
-```
-
-```{python}
-items = list(
-    db.Equipment.Query()
-        .Where(expression("$.Name = 'SEM'"))
-        .OrderBy(expression("$.Name"))
-        .Limit(10)
-        .ToList()
-)
-
-items[0].Id
-```
-
-```{python}
 result = AnalysisResult(
     type      = AnalysisType.SEM,
     machineId = sem.Id,
@@ -47,6 +33,61 @@ result = AnalysisResult(
     data      = "Analysis data goes here..."
 )
 
-db.InsertAnalysisResult(result)
+print(f"new equipment = {db.InsertEquipment(sem)}")
+print(f"new equipment = {db.InsertEquipment(sem)}")
+
+print(f"new analysis result = {db.InsertAnalysisResult(result)}")
+print(f"new analysis result = {db.InsertAnalysisResult(result)}")
+```
+
+Print an element:
+
+```{python}
+print(sem)
+```
+
+```{python}
+print(result)
+```
+
+List all elements from a collection:
+
+```{python}
+list(db.GetAllEquipment())
+```
+
+```{python}
 list(db.GetAllAnalysisResults())
+```
+
+More advanced query with filtering, sorting and limiting results:
+
+```{python}
+items = list(
+    db.EquipmentCollection.Query()
+        .Where(expression("$.Name = 'SEM'"))
+        .OrderBy(expression("$.Name"))
+        .Limit(5)
+        .ToList()
+)
+print(items[0])
+```
+
+Check if internal references are working:
+
+```{python}
+items = list(
+    db.AnalysisResultsCollection.Query()
+        .Where(expression("$.Type = 'SEM'"))
+        .OrderBy(expression("$.CreatedOn", ascending=False))
+        .Limit(5)
+        .ToList()
+)
+
+items = list(
+    db.EquipmentCollection.Query()
+        .Where(expression("$.Id = @objId", objId=items[0].MachineId))
+        .ToList()
+)
+print(items[0])
 ```

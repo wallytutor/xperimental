@@ -38,6 +38,6 @@ AnalysisResult = import_from("xl_database", "AnalysisResult")
 BsonExpression = import_from("LiteDB",      "BsonExpression")
 
 
-def expression(text: str) -> object:
+def expression(text: str, **kwargs) -> object:
     """Create a BsonExpression from a string. """
-    return BsonExpression.Create(text)
+    return BsonExpression.Create(text, **kwargs)

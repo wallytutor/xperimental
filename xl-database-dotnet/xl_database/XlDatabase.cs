@@ -12,15 +12,7 @@ public class XlDatabase
     }
 
     #region Equipment
-    private static bool EquipmentExists(Equipment entry, Equipment item)
-    {
-        var sameId    = entry.Id    == item.Id;
-        var sameName  = entry.Name  == item.Name;
-        var sameModel = entry.Model == item.Model;
-        return sameId || (sameName && sameModel);
-    }
-
-    public ILiteCollection<Equipment> Equipment
+    public ILiteCollection<Equipment> EquipmentCollection
     {
         get {
             var col = db.GetCollection<Equipment>("equipment");
@@ -31,12 +23,12 @@ public class XlDatabase
 
     public IEnumerable<Equipment> GetAllEquipment()
     {
-        return Equipment.FindAll();
+        return EquipmentCollection.FindAll();
     }
 
-    public void InsertEquipment(Equipment item)
+    public bool InsertEquipment(Equipment item)
     {
-        if (Equipment.FindAll().Any(x => EquipmentExists(x, item)))
+        if (EquipmentCollection.FindAll().Any(x => x.IsSameAs(item)))
         {
             Console.WriteLine($"""
                 An instance of 'Equipment' with Id '{item.Id}'
@@ -44,25 +36,26 @@ public class XlDatabase
 
                 {item}
                 """);
-            return;
+            return false;
         }
 
-        Equipment.Insert(item);
+        EquipmentCollection.Insert(item);
+        return true;
     }
 
     public void UpdateEquipment(Equipment item)
     {
-        Equipment.Update(item);
+        EquipmentCollection.Update(item);
     }
 
     public void DeleteEquipment(Equipment item)
     {
-        Equipment.Delete(item.Id);
+        EquipmentCollection.Delete(item.Id);
     }
     #endregion Equipment
 
     #region AnalysisResults
-    public ILiteCollection<AnalysisResult> AnalysisResults
+    public ILiteCollection<AnalysisResult> AnalysisResultsCollection
     {
         get {
             var col = db.GetCollection<AnalysisResult>("analysis_results");
@@ -73,31 +66,41 @@ public class XlDatabase
 
     public IEnumerable<AnalysisResult> GetAllAnalysisResults()
     {
-        return AnalysisResults.FindAll();
+        return AnalysisResultsCollection.FindAll();
     }
 
-    public void InsertAnalysisResult(AnalysisResult item)
+    public bool InsertAnalysisResult(AnalysisResult item)
     {
-        if (AnalysisResults.Exists(x => x.Id == item.Id))
+        if (EquipmentCollection.FindById(item.MachineId) == null)
+        {
+            Console.WriteLine($"""
+                No 'Equipment' with Id '{item.MachineId}' exists.
+                Cannot insert 'AnalysisResult' with Id '{item.Id}'.
+                """);
+            return false;
+        }
+
+        if (AnalysisResultsCollection.FindAll().Any(x => x.IsSameAs(item)))
         {
             Console.WriteLine($"""
                 An instance of 'AnalysisResult' with Id '{item.Id}'
                 already exists. Skipping insert.
                 """);
-            return;
+            return false;
         }
-        AnalysisResults.Insert(item);
+
+        AnalysisResultsCollection.Insert(item);
+        return true;
     }
 
     public void UpdateAnalysisResult(AnalysisResult item)
     {
-        AnalysisResults.Update(item);
+        AnalysisResultsCollection.Update(item);
     }
 
     public void DeleteAnalysisResult(AnalysisResult item)
     {
-        AnalysisResults.Delete(item.Id);
+        AnalysisResultsCollection.Delete(item.Id);
     }
-
     #endregion AnalysisResults
 }
