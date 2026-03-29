@@ -1,0 +1,45 @@
+@ollama_HostAddress = http://localhost:11434
+
+### https://docs.ollama.com/api/introduction
+GET {{ollama_HostAddress}}/
+Accept: application/json
+
+### https://docs.ollama.com/api/tags
+GET {{ollama_HostAddress}}/api/tags
+Accept: application/json
+
+### https://docs.ollama.com/api/ps
+GET {{ollama_HostAddress}}/api/ps
+Accept: application/json
+
+### https://docs.ollama.com/api-reference/get-version
+GET {{ollama_HostAddress}}/api/version
+Accept: application/json
+
+### https://docs.ollama.com/api/pull
+POST {{ollama_HostAddress}}/api/pull
+Content-Type: application/json
+
+{
+  "model": "qwen3.5:2b"
+}
+
+### https://docs.ollama.com/api/generate
+POST {{ollama_HostAddress}}/api/generate
+Content-Type: application/json
+
+{
+  "model": "qwen3.5:2b",
+  "prompt": "Is god alive?",
+  "stream": false,
+  "keep_alive": "5m"
+}
+
+### https://docs.ollama.com/api/embed
+POST {{ollama_HostAddress}}/api/embed
+Content-Type: application/json
+
+{
+  "model": "embeddinggemma",
+  "input": "What is the capital of France?"
+}

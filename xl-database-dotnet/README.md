@@ -11,6 +11,7 @@ References:
 - [LiteDB Studio](https://github.com/litedb-org/LiteDB.Studio)
 - [OpenAPI](https://aka.ms/aspnet/openapi)
 - [Ollama](https://github.com/ollama/ollama)
+- [Ollama API](https://docs.ollama.com/api/introduction)
 
 ## Creating a similar project
 
