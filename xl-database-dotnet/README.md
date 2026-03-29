@@ -98,3 +98,39 @@ Invoke-RestMethod http://localhost:5031/equipment/
 - Objects to be serialized with LiteDB must have a public properties with getters (and optionally setters). Notice that `readonly` properties are not supported.
 
 - To enable type-safe equality checks, we can use a generic interface `IDocument<TSelf>` that inherits from `IDocument` and defines a method `IsSameAs(TSelf item)`. This allows us to implement the method in each document class with the correct type, avoiding the need for type checks and casts. See the [Documents.cs](xl_database/Documents.cs) file for details.
+
+## Ideas
+
+- Summarize results with an LLM and store the summary in the database.
+
+```cs
+...
+var data = await ctx.Request.ReadFromJsonAsync<ExperimentResult>();
+if (data is null) return Results.BadRequest();
+
+var summary = await llm.GenerateAsync(
+    "llama3",
+    $"Summarize this experimental result in 3 sentences:\n{data.RawText}"
+);
+
+data.Summary = summary;
+repo.Insert(data);
+...
+```
+
+- Use an LLM to convert natural language queries into LiteDB filter expressions.
+
+```cs
+...
+var query = await ctx.Request.ReadFromJsonAsync<string>();
+
+var instruction = $@"
+You are an assistant that converts natural language into LiteDB filter expressions.
+User query: {query}
+Return only the filter expression, nothing else.
+";
+
+var filter = await llm.GenerateAsync("llama3", instruction);
+var results = repo.Query(filter); // you'd implement this
+...
+```
