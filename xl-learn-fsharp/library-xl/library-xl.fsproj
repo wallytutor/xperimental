@@ -7,7 +7,14 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="Library.fs" />
+    <Compile Include="Common/Constants.fs" />
+    <Compile Include="Common/Elements.fs" />
+    <Compile Include="Common/Mixtures.fs" />
+    <Compile Include="Common/Numerical.fs" />
+    <Compile Include="Common/Thermophysics.fs" />
+    <Compile Include="Slycke/Data.fs" />
+    <Compile Include="Slycke/Models.fs" />
+
   </ItemGroup>
 
   <ItemGroup>
