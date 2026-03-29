@@ -21,4 +21,17 @@ public class Equipment
         Manufacturer = manufacturer;
         SerialNumber = serialNumber;
     }
+
+    public override string ToString()
+    {
+        return $"""
+            Equipment(
+                Id           = '{Id}',
+                Name         = '{Name}',
+                Model        = '{Model}',
+                Manufacturer = '{Manufacturer}',
+                SerialNumber = '{SerialNumber}'
+            )
+            """;
+    }
 }

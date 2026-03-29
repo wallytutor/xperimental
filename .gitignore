@@ -3,3 +3,9 @@
 
 # Any sandbox:
 *sandbox*
+
+# Python:
+__pycache__/
+*.pyc
+*.pyo
+*.pyd

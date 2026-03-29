@@ -1,52 +1,18 @@
 # Database connection example
 
 ```{python}
-def load_project(
-        name: str = "xl_database",
-        mode: str = "Debug",
-        dotnet: str = "net10.0"
-    ) -> None:
-    """ Helper for getting project paths from notebook. """
-    import sys
-    from pathlib import Path
-    from IPython import get_ipython
-
-    try:
-        here = Path(__file__).resolve().parent
-    except NameError:
-        here = Path(get_ipython().run_line_magic("pwd", ""))
-
-    assembly_path = here.parent / f"{name}/bin/{mode}/{dotnet}"
-    sys.path.insert(0, str(assembly_path))
-
-    from pythonnet import load
-    load("coreclr", runtime_config="runtime.json")
-
-    import clr
-    clr.AddReference(name)
-```
-
-```{python}
-load_project()
-```
-
-```{python}
-from xl_database import XlDatabase
-from xl_database import Equipment
-from xl_database import AnalysisType
-from xl_database import AnalysisResult
-
-# XXX This must come after loading the assembly!
-from LiteDB import BsonExpression
-```
-
-```{python}
-def expression(text: str) -> BsonExpression:
-    return BsonExpression.Create(text)
+from database import (
+    XlDatabase,
+    Equipment,
+    AnalysisType,
+    AnalysisResult,
+    expression
+)
 ```
 
 ```{python}
 db = XlDatabase()
+list(db.GetAllEquipment())
 ```
 
 ```{python}
@@ -57,9 +23,8 @@ sem = Equipment(
     serialNumber = "12345"
 )
 
-db.Equipment.Insert(sem)
-
-list(db.Equipment.FindAll())
+db.InsertEquipment(sem)
+list(db.GetAllEquipment())
 ```
 
 ```{python}
@@ -82,7 +47,6 @@ result = AnalysisResult(
     data      = "Analysis data goes here..."
 )
 
-db.AnalysisResults.Insert(result)
-
-list(db.AnalysisResults.FindAll())
+db.InsertAnalysisResult(result)
+list(db.GetAllAnalysisResults())
 ```
