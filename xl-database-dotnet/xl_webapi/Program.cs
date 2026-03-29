@@ -6,6 +6,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddOpenApi();
 builder.Services.AddSingleton(database);
+builder.Services.AddHttpClient<OllamaClient>();
 #endregion builder
 
 #region app
@@ -140,6 +141,46 @@ analysisResults.MapDelete("/{id}", (XlDatabase database, string id) =>
     return Results.NoContent();
 }).WithDeleteAnalysisResultDocs();
 #endregion analysis result endpoints
+
+#region ollama endpoints
+// app.MapPost("/results/with-ai", async (
+//     HttpContext ctx,
+//     ExperimentRepository repo,
+//     OllamaClient ollama) =>
+// {
+//     var data = await ctx.Request.ReadFromJsonAsync<ExperimentResult>();
+//     if (data is null) return Results.BadRequest();
+
+//     var summary = await ollama.GenerateAsync(
+//         "llama3",
+//         $"Summarize this experimental result in 3 sentences:\n{data.RawText}"
+//     );
+
+//     data.Summary = summary;
+
+//     repo.Insert(data);
+
+//     return Results.Created($"/results/{data.Id}", data);
+// });
+// app.MapPost("/search/ai", async (
+//     OllamaClient ollama,
+//     ExperimentRepository repo,
+//     HttpContext ctx) =>
+// {
+//     var query = await ctx.Request.ReadFromJsonAsync<string>();
+
+//     var instruction = $@"
+// You are an assistant that converts natural language into LiteDB filter expressions.
+// User query: {query}
+// Return only the filter expression, nothing else.
+// ";
+
+//     var filter = await ollama.GenerateAsync("llama3", instruction);
+
+//     var results = repo.Query(filter); // you'd implement this
+//     return Results.Ok(results);
+// });
+#endregion ollama endpoints
 
 app.Run();
 
