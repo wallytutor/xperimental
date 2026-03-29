@@ -64,6 +64,31 @@ python -m pip install 'ipykernel'
 
 Now you can use the .NET assembly from Python. See the [scratch/connect.qmd](scratch/connect.qmd) file for examples of how to do this.
 
+## Running the web API
+
+It is recommended to use the [REST Client](https://marketplace.visualstudio.com/items?itemName=humao.rest-client) extension for Visual Studio Code to interact with the web API. You can find example requests in the [xl_webapi/requests.http](xl_webapi/requests.http) file.
+
+1. Start the web API with the following command:
+
+```bash
+dotnet run --project xl_webapi
+```
+
+2. Open `xl_webapi.http` and click Send Request above any block.
+
+
+3. Alternatively, open `http://localhost:5031/openapi/v1.json` in your browser to view the OpenAPI specification. You can use this specification to generate client code in various languages such as with PowerShell as illustrated below.
+
+```bash
+# Create equipment
+Invoke-RestMethod http://localhost:5031/equipment/ -Method Post `
+    -ContentType "application/json" `
+    -Body '{"name":"SEM","model":"Model XYZ","manufacturer":"SEM Corp","serialNumber":"12345"}'
+
+# List equipment
+Invoke-RestMethod http://localhost:5031/equipment/
+```
+
 ## Development notes
 
 - Objects to be serialized with LiteDB must have a public properties with getters (and optionally setters). Notice that `readonly` properties are not supported.

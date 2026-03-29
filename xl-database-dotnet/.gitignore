@@ -7,3 +7,6 @@
 
 # Notebooks
 .ipynb_checkpoints/*
+
+# Application generated files:
+xl_webapi/*.db

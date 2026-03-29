@@ -1,0 +1,30 @@
+@xl_webapi_HostAddress = http://localhost:5031
+
+### List all equipment
+GET {{xl_webapi_HostAddress}}/equipment/
+Accept: application/json
+
+### Create equipment
+POST {{xl_webapi_HostAddress}}/equipment/
+Content-Type: application/json
+
+{
+    "name": "SEM",
+    "model": "Model XYZ",
+    "manufacturer": "SEM Corp",
+    "serialNumber": "12345"
+}
+
+### Update equipment (replace {id} with actual id)
+PUT {{xl_webapi_HostAddress}}/equipment/{id}
+Content-Type: application/json
+
+{
+    "name": "SEM Updated",
+    "model": "Model XYZ",
+    "manufacturer": "SEM Corp",
+    "serialNumber": "12345"
+}
+
+### Delete equipment (replace {id} with actual id)
+DELETE {{xl_webapi_HostAddress}}/equipment/{id}

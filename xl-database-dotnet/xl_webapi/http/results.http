@@ -1,0 +1,30 @@
+@xl_webapi_HostAddress = http://localhost:5031
+
+### List all analysis results
+GET {{xl_webapi_HostAddress}}/analysis-results/
+Accept: application/json
+
+### Create analysis result (replace machineId with actual equipment id)
+POST {{xl_webapi_HostAddress}}/analysis-results/
+Content-Type: application/json
+
+{
+    "type": 2,
+    "machineId": "{id}",
+    "sampleId": "Sample123",
+    "data": "Analysis data goes here..."
+}
+
+### Update analysis result (replace {id} with actual id)
+PUT {{xl_webapi_HostAddress}}/analysis-results/{id}
+Content-Type: application/json
+
+{
+    "type": 2,
+    "machineId": "{machineId}",
+    "sampleId": "Sample123",
+    "data": "Updated analysis data..."
+}
+
+### Delete analysis result (replace {id} with actual id)
+DELETE {{xl_webapi_HostAddress}}/analysis-results/{id}
