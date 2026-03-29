@@ -1,3 +1,5 @@
+namespace xl_webapi.Endpoints;
+using xl_webapi.Contracts;
 using xl_database;
 
 public static class EquipmentEndpoints

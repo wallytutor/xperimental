@@ -1,3 +1,4 @@
+namespace xl_webapi.Contracts;
 using Microsoft.Extensions.Options;
 
 public interface ILanguageClientOptions {}

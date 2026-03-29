@@ -1,3 +1,4 @@
+namespace xl_webapi.Contracts;
 using xl_database;
 
 public record EquipmentRequest(
@@ -20,6 +21,6 @@ public record AnalysisResultRequest(
     DateTime? UpdatedOn = null
 );
 
-public record OllamaGenerateRequest(string Prompt);
+public record ModelGenerateRequest(string Prompt);
 
-public record OllamaPullRequest();
+public record ModelPullRequest();

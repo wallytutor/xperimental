@@ -4,14 +4,14 @@
 ########################################################################
 
 ### Pulling the model from Ollama (if not already pulled)
-POST {{xl_webapi_HostAddress}}/ollama/pull
+POST {{xl_webapi_HostAddress}}/model/pull
 Content-Type: application/json
 
 {
 }
 
 ### Test Ollama generation
-POST {{xl_webapi_HostAddress}}/ollama/generate
+POST {{xl_webapi_HostAddress}}/model/generate
 Content-Type: application/json
 
 {

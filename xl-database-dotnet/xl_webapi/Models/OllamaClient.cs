@@ -1,3 +1,6 @@
+namespace xl_webapi.Models;
+using xl_webapi.Contracts;
+
 using Microsoft.Extensions.Options;
 using System.Net.Http.Json;
 using System.Text.Json;
