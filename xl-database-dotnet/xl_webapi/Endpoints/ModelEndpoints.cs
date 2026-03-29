@@ -3,29 +3,32 @@ using xl_webapi.Contracts;
 
 public static class ModelEndpoints
 {
-    private static async Task<IResult> GenerateAsync(
+    private static async Task<IResult> Generate(
         ILanguageClient languageClient,
         ModelGenerateRequest request)
     {
-        var response = await languageClient.GenerateAsync(request.Prompt);
+        var response = await languageClient.Generate(request.Prompt);
         return Results.Ok(new { request.Prompt, Response = response });
     }
 
-    private static async Task<IResult> PullAsync(
+    private static async Task<IResult> Pull(
         ILanguageClient languageClient,
         ModelPullRequest request)
     {
         _ = request;
-        var status = await languageClient.PullAsync();
+        var status = await languageClient.Pull();
         return Results.Ok(new { Status = status });
     }
 
-    public static IEndpointRouteBuilder MapModelEndpoints(this IEndpointRouteBuilder app)
+    public static IEndpointRouteBuilder MapModelEndpoints(
+        this IEndpointRouteBuilder app)
     {
-        app.MapPost("/model/generate", GenerateAsync)
+        var leaf = app.MapGroup("/model");
+
+        leaf.MapPost("/generate", Generate)
             .WithGenerateDocs();
 
-        app.MapPost("/model/pull", PullAsync)
+        leaf.MapPost("/pull", Pull)
             .WithPullDocs();
 
         return app;

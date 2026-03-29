@@ -24,7 +24,7 @@ public class OllamaClient : LanguageClientBase<OllamaOptions>
         Http.BaseAddress = new Uri(Options.BaseAddress);
     }
 
-    public override async Task<string> GenerateAsync(string prompt)
+    public override async Task<string> Generate(string prompt)
     {
         var payload = new {
             model      = Options.Model,
@@ -42,7 +42,7 @@ public class OllamaClient : LanguageClientBase<OllamaOptions>
         return json.GetProperty("response").GetString()!;
     }
 
-    public override async Task<string> PullAsync()
+    public override async Task<string> Pull()
     {
         // XXX: do not add arguments to this method! Only the configured
         // model should be pulled, otherwise users could start pulling

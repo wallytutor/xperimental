@@ -4,67 +4,88 @@ using xl_database;
 
 public static class EquipmentEndpoints
 {
-    public static IEndpointRouteBuilder MapEquipmentEndpoints(this IEndpointRouteBuilder app)
+    private static async Task<IResult> GetAllEquipment(
+        XlDatabase database)
     {
-        var equipment = app.MapGroup("/equipment");
+        return Results.Ok(database.GetAllEquipment());
+    }
 
-        equipment.MapGet("/", (XlDatabase database) =>
+    private static async Task<IResult> CreateEquipment(
+        XlDatabase database,
+        EquipmentRequest request)
+    {
+        var item = new Equipment(
+            request.Name,
+            request.Model,
+            request.Manufacturer,
+            request.SerialNumber,
+            request.Id,
+            request.CreatedOn,
+            request.UpdatedOn);
+
+        var inserted = database.InsertEquipment(item);
+        if (!inserted)
         {
-            return Results.Ok(database.GetAllEquipment());
-        }).WithGetAllEquipmentDocs();
+            return Results.Conflict("Equipment already exists.");
+        }
 
-        equipment.MapPost("/", (XlDatabase database, EquipmentRequest request) =>
+        return Results.Created($"/equipment/{item.Id}", item);
+    }
+
+    private static async Task<IResult> UpdateEquipment(
+        XlDatabase database,
+        string id,
+        EquipmentRequest request)
+    {
+        var current = database.EquipmentCollection.FindById(id);
+        if (current is null)
         {
-            var item = new Equipment(
-                request.Name,
-                request.Model,
-                request.Manufacturer,
-                request.SerialNumber,
-                request.Id,
-                request.CreatedOn,
-                request.UpdatedOn);
+            return Results.NotFound();
+        }
 
-            var inserted = database.InsertEquipment(item);
-            if (!inserted)
-            {
-                return Results.Conflict("Equipment already exists.");
-            }
+        var updated = new Equipment(
+            request.Name,
+            request.Model,
+            request.Manufacturer,
+            request.SerialNumber,
+            id,
+            request.CreatedOn ?? current.CreatedOn,
+            DateTime.UtcNow);
 
-            return Results.Created($"/equipment/{item.Id}", item);
-        }).WithCreateEquipmentDocs();
+        database.UpdateEquipment(updated);
+        return Results.Ok(updated);
+    }
 
-        equipment.MapPut("/{id}", (XlDatabase database, string id, EquipmentRequest request) =>
+    private static async Task<IResult> DeleteEquipment(
+        XlDatabase database,
+        string id)
+    {
+        var current = database.EquipmentCollection.FindById(id);
+        if (current is null)
         {
-            var current = database.EquipmentCollection.FindById(id);
-            if (current is null)
-            {
-                return Results.NotFound();
-            }
+            return Results.NotFound();
+        }
 
-            var updated = new Equipment(
-                request.Name,
-                request.Model,
-                request.Manufacturer,
-                request.SerialNumber,
-                id,
-                request.CreatedOn ?? current.CreatedOn,
-                DateTime.UtcNow);
+        database.DeleteEquipment(current);
+        return Results.NoContent();
+    }
 
-            database.UpdateEquipment(updated);
-            return Results.Ok(updated);
-        }).WithUpdateEquipmentDocs();
+    public static IEndpointRouteBuilder MapEquipmentEndpoints(
+        this IEndpointRouteBuilder app)
+    {
+        var leaf = app.MapGroup("/equipment");
 
-        equipment.MapDelete("/{id}", (XlDatabase database, string id) =>
-        {
-            var current = database.EquipmentCollection.FindById(id);
-            if (current is null)
-            {
-                return Results.NotFound();
-            }
+        leaf.MapGet("/", GetAllEquipment)
+            .WithGetAllEquipmentDocs();
 
-            database.DeleteEquipment(current);
-            return Results.NoContent();
-        }).WithDeleteEquipmentDocs();
+        leaf.MapPost("/", CreateEquipment)
+            .WithCreateEquipmentDocs();
+
+        leaf.MapPut("/{id}", UpdateEquipment)
+            .WithUpdateEquipmentDocs();
+
+        leaf.MapDelete("/{id}", DeleteEquipment)
+            .WithDeleteEquipmentDocs();
 
         return app;
     }

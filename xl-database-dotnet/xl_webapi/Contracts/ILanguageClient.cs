@@ -5,8 +5,8 @@ public interface ILanguageClientOptions {}
 
 public interface ILanguageClient
 {
-    Task<string> GenerateAsync(string prompt);
-    Task<string> PullAsync();
+    Task<string> Generate(string prompt);
+    Task<string> Pull();
 }
 
 public abstract class LanguageClientBase<TOptions> : ILanguageClient
@@ -21,6 +21,6 @@ public abstract class LanguageClientBase<TOptions> : ILanguageClient
     protected HttpClient Http { get; }
     protected TOptions Options { get; }
 
-    public abstract Task<string> GenerateAsync(string prompt);
-    public abstract Task<string> PullAsync();
+    public abstract Task<string> Generate(string prompt);
+    public abstract Task<string> Pull();
 }
