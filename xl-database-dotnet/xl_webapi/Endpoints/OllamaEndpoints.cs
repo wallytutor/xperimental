@@ -22,3 +22,26 @@ public static class OllamaEndpoints
         return app;
     }
 }
+
+public static class OllamaEndpointsMetadata
+{
+    public static RouteHandlerBuilder WithGenerateDocs(this RouteHandlerBuilder builder)
+    {
+        return builder
+            .WithName("Generate")
+            .WithSummary("Generate text from a prompt using Ollama")
+            .WithDescription("Sends a prompt to the configured Ollama model and returns the generated response. Example body: { \"prompt\": \"What is SEM?\" }")
+            .Accepts<OllamaGenerateRequest>("application/json")
+            .Produces(StatusCodes.Status200OK);
+    }
+
+    public static RouteHandlerBuilder WithPullDocs(this RouteHandlerBuilder builder)
+    {
+        return builder
+            .WithName("PullModel")
+            .WithSummary("Pull Ollama model")
+            .WithDescription("Pulls the configured Ollama model to the local runtime.")
+            .Accepts<OllamaPullRequest>("application/json")
+            .Produces(StatusCodes.Status200OK);
+    }
+}
