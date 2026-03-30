@@ -1,0 +1,81 @@
+FROM rockylinux:9
+
+RUN dnf makecache --refresh && \
+    dnf -y install epel-release
+
+RUN dnf config-manager --set-enabled crb
+
+RUN dnf makecache --refresh && \
+    dnf -y update
+
+# Install general deps (openfoam-nopv-deps):
+RUN dnf install -y          \
+    autoconf                \
+    bison                   \
+    cmake                   \
+    flex                    \
+    git                     \
+    gcc                     \
+    gcc-c++                 \
+    gnuplot                 \
+    libXt-devel             \
+    make                    \
+    openmpi-devel           \
+    python3.11-devel        \
+    zlib-devel
+
+# For Qt environment:
+RUN dnf install -y          \
+    qt5-devel               \
+    qt5-qtsvg               \
+    qt5-qttools-devel       \
+    qt5-qtxmlpatterns-devel \
+    qt5-qtx11extras
+
+# Install extra deps + fixes (openfoam-deps):
+RUN dnf install -y          \
+    double-conversion-devel \
+    doxygen                 \
+    freetype-devel          \
+    glew-devel              \
+    gl2ps-devel             \
+    graphviz                \
+    hdf5-devel              \
+    json-devel              \
+    libavfilter-free-devel  \
+    libtheora-devel         \
+    libxml2-devel           \
+    libX11-devel            \
+    paraview-devel          \
+    PDAL-devel              \
+    protobuf-devel          \
+    utf8cpp-devel           \
+    vtk-devel                   
+
+# Configure OpenMPI (missing expected paths):
+ENV PATH="${PATH}:/usr/lib64/openmpi/bin"
+ENV CPATH="${CPATH}:/usr/include/openmpi-x86_64/"
+ENV CPATH="${CPATH}:/usr/include/vtk/"
+
+RUN ln -s /usr/lib64/openmpi/lib /usr/lib64/openmpi/lib64
+
+# Creation of base directory and clone repositories:
+ENV FOAM_BASE="/opt/openfoam12/"
+RUN mkdir -p ${FOAM_BASE} && cd ${FOAM_BASE} && \
+    git clone https://github.com/OpenFOAM/OpenFOAM-12.git && \
+    git clone https://github.com/OpenFOAM/ThirdParty-12.git
+
+# Workaround to get Paraview working:
+RUN sed -i "s|libpqCore-pv|libpqCore|g" \
+    ${FOAM_BASE}/OpenFOAM-12/etc/config.sh/paraview
+
+WORKDIR ${FOAM_BASE}
+RUN source ${FOAM_BASE}/OpenFOAM-12/etc/bashrc && \
+    cd ${FOAM_BASE}/OpenFOAM-12 && ./Allwmake -q -j 4
+
+RUN source ${FOAM_BASE}/OpenFOAM-12/etc/bashrc && \
+    cd ${FOAM_BASE}/OpenFOAM-12/doc/Doxygen && ./Allwmake
+
+RUN echo "source ${FOAM_BASE}/OpenFOAM-12/etc/bashrc" >> /etc/bashrc
+
+CMD ["/bin/bash"]

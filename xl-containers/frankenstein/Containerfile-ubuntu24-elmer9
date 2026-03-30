@@ -1,0 +1,20 @@
+#
+# podman build -t ubuntu24-elmer9 -f Containerfile-ubuntu24-elmer9 .
+#
+FROM ubuntu:24.04
+
+RUN apt update && apt upgrade -y
+
+RUN apt install -y build-essential cmake git gcc g++ gfortran
+
+# RUN apt install -y
+# libblas-dev \
+# liblapack-dev \
+# libmumps-dev \
+# libparmetis-dev \
+# mpich \
+# sudo \
+# less \
+# unzip \
+# zip \
+# curl
