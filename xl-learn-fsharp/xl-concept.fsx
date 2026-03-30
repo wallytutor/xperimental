@@ -48,3 +48,17 @@ module Main =
     // let b = Array.create n  2.0
     // let c = Array.create n -1.0
     // let d = Array.create n (h * h)   // f * h²  with  f = 1
+
+    open System
+    open System.Diagnostics
+
+    let gp =
+        new ProcessStartInfo (
+            FileName              = "gnuplot",
+            UseShellExecute       = false,
+            CreateNoWindow        = true,
+            RedirectStandardInput = true
+        ) |> Process.Start
+
+    // Draw graph of two simple functions
+    gp.StandardInput.WriteLine "plot sin(x) + sin(3*x), -x"

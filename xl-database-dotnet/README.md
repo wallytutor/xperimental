@@ -12,6 +12,7 @@ References:
 - [OpenAPI](https://aka.ms/aspnet/openapi)
 - [Ollama](https://github.com/ollama/ollama)
 - [Ollama API](https://docs.ollama.com/api/introduction)
+- [Ollama Course](https://www.youtube.com/playlist?list=PLvsHpqLkpw0dR0_VT9-8KLCDFzcswNJ6D)
 
 ## Creating a similar project
 
