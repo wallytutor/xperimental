@@ -1,8 +1,9 @@
 // #r "library-xl/bin/Debug/net10.0/library-xl.dll"
-#load "library-xl/Common/Constants.fs"
+#load "library-xl/Common/Core.fs"
 #load "library-xl/Common/Elements.fs"
 #load "library-xl/Common/Mixtures.fs"
 #load "library-xl/Common/Numerical.fs"
+#load "library-xl/Common/Plotting.fs"
 #load "library-xl/Common/Thermophysics.fs"
 #load "library-xl/Slycke/Data.fs"
 #load "library-xl/Slycke/Models.fs"
@@ -49,16 +50,8 @@ module Main =
     // let c = Array.create n -1.0
     // let d = Array.create n (h * h)   // f * h²  with  f = 1
 
-    open System
-    open System.Diagnostics
-
-    let gp =
-        new ProcessStartInfo (
-            FileName              = "gnuplot",
-            UseShellExecute       = false,
-            CreateNoWindow        = true,
-            RedirectStandardInput = true
-        ) |> Process.Start
-
-    // Draw graph of two simple functions
-    gp.StandardInput.WriteLine "plot sin(x) + sin(3*x), -x"
+    Gnuplot.GnuplotInteractive ()
+    |>> "set term png size 800,600"
+    |>> "set xlabel 'X-axis'"
+    |>> "set ylabel 'Y-axis'"
+    |>> "plot sin(x) + sin(3*x), -x"
