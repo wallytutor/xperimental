@@ -13,15 +13,25 @@ module Gnuplot =
 
     type GnuplotInteractive() =
         let handle =
-            new ProcessStartInfo (
-                FileName              = executableName,
-                UseShellExecute       = false,
-                CreateNoWindow        = true,
-                RedirectStandardInput = true
-            ) |> Process.Start
+            try
+                let psi = new ProcessStartInfo (
+                    FileName              = executableName,
+                    UseShellExecute       = false,
+                    CreateNoWindow        = true,
+                    RedirectStandardInput = true,
+                    RedirectStandardError = true
+                )
+                Some (Process.Start psi)
+            with
+            | ex ->
+                eprintfn $"Failed to start gnuplot ({executableName}): {ex.Message}"
+                Trace.TraceWarning $"Failed to start gnuplot: {ex.Message}"
+                None
 
         member self.write (command: string) =
-            handle.StandardInput.WriteLine command
+            match handle with
+            | Some proc -> proc.StandardInput.WriteLine command
+            | None -> ()
 
         static member (|>>) (gp: GnuplotInteractive, str: string) =
             if String.IsNullOrWhiteSpace str then

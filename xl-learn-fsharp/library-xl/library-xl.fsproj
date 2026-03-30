@@ -6,7 +6,7 @@
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
   </PropertyGroup>
 
-  <ItemGroup><Compile Include="Common\Core.fs" /><Compile Include="Common\Plotting.fs" />
+  <ItemGroup>
     <Compile Include="Common/Core.fs" />
     <Compile Include="Common/Elements.fs" />
     <Compile Include="Common/Mixtures.fs" />
