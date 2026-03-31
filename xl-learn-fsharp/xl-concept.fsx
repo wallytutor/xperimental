@@ -159,10 +159,6 @@ module Main =
         (hnInf: float)
         (xcInf: float)
         (xnInf: float)
-        (buildSystem: float array -> float -> float -> float -> float array -> float array * float array * float array * float array)
-        (updateDiff: float array -> float array -> float array * float array)
-        (solveTridiagonal: float array -> float array -> float array -> float array -> float array)
-        (relax: float array -> float array -> float -> float array)
         (xcIter: float array)
         (xnIter: float array)
         : float array * float array * float * bool =
@@ -170,26 +166,26 @@ module Main =
         let oldXc = Array.copy xcIter
         let oldXn = Array.copy xnIter
 
-        let carbonDiffField, nitrogenDiffField = updateDiff oldXc oldXn
+        let carbonDiffField, nitrogenDiffField = updateDiffusivities oldXc oldXn
 
         let carbonTask =
             Task.Run(fun () ->
-                let aC, bC, cC, dC = buildSystem carbonDiffField hcInf xcInf timeStep previousTimeXc
-                solveTridiagonal aC bC cC dC
+                let aC, bC, cC, dC = buildDiffusionSystem carbonDiffField hcInf xcInf timeStep previousTimeXc
+                Numerical.tdma aC bC cC dC
             )
 
         let nitrogenTask =
             Task.Run(fun () ->
-                let aN, bN, cN, dN = buildSystem nitrogenDiffField hnInf xnInf timeStep previousTimeXn
-                solveTridiagonal aN bN cN dN
+                let aN, bN, cN, dN = buildDiffusionSystem nitrogenDiffField hnInf xnInf timeStep previousTimeXn
+                Numerical.tdma aN bN cN dN
             )
 
         Task.WaitAll [| carbonTask :> Task; nitrogenTask :> Task |]
         let xcNew = carbonTask.Result
         let xnNew = nitrogenTask.Result
 
-        let xcNext = relax xcNew oldXc relaxation
-        let xnNext = relax xnNew oldXn relaxation
+        let xcNext = relaxSolution xcNew oldXc relaxation
+        let xnNext = relaxSolution xnNew oldXn relaxation
 
         let maxC =
             Array.map2 (fun newValue oldValue -> abs (newValue - oldValue)) xcNext oldXc
@@ -215,10 +211,6 @@ module Main =
         (hnInf: float)
         (xcInf: float)
         (xnInf: float)
-        (buildSystem: float array -> float -> float -> float -> float array -> float array * float array * float array * float array)
-        (updateDiff: float array -> float array -> float array * float array)
-        (solveTridiagonal: float array -> float array -> float array -> float array -> float array)
-        (relax: float array -> float array -> float -> float array)
         : float array * float array * bool * int * float =
 
         let mutable xcIter = Array.copy previousTimeXc
@@ -240,10 +232,6 @@ module Main =
                     hnInf
                     xcInf
                     xnInf
-                    buildSystem
-                    updateDiff
-                    solveTridiagonal
-                    relax
                     xcIter
                     xnIter
 
@@ -301,7 +289,10 @@ module Main =
     let xcArray = Array.create num_points xc
     let xnArray = Array.create num_points xn
 
-    let solveStepForCurrentModel (timeStep: float) (previousTimeXc: float array) (previousTimeXn: float array) =
+    let solveStepForCurrentModel
+        (timeStep: float)
+        (previousTimeXc: float array)
+        (previousTimeXn: float array) =
         outerLoop
             timeStep
             previousTimeXc
@@ -313,20 +304,16 @@ module Main =
             hn_inf
             xc_inf
             xn_inf
-            buildDiffusionSystem
-            updateDiffusivities
-            Numerical.tdma
-            relaxSolution
 
     let ycResults, ynResults, finalConverged, finalIteration, finalResidual =
         integrate t dt xcArray xnArray convertMoleToMassFields solveStepForCurrentModel
 
     let last = num_points - 1
-    printfn $"Final converged ....... {finalConverged}"
-    printfn $"Final iterations ...... {finalIteration}"
-    printfn $"Final residual ........ {finalResidual:E3}"
-    printfn $"yC surface/depth ...... {ycResults.[nTimeSteps].[0]:F6} / {ycResults.[nTimeSteps].[last]:F6}"
-    printfn $"yN surface/depth ...... {ynResults.[nTimeSteps].[0]:F6} / {ynResults.[nTimeSteps].[last]:F6}"
+    printfn $"Final converged .. {finalConverged}"
+    printfn $"Final iterations . {finalIteration}"
+    printfn $"Final residual ... {finalResidual:E3}"
+    printfn $"yC surface/depth . {ycResults.[nTimeSteps].[0]:F6} / {ycResults.[nTimeSteps].[last]:F6}"
+    printfn $"yN surface/depth . {ynResults.[nTimeSteps].[0]:F6} / {ynResults.[nTimeSteps].[last]:F6}"
 
     // Save final profiles for post-processing and plotting.
     let outputDir = Path.Combine(__SOURCE_DIRECTORY__, "sandbox")
