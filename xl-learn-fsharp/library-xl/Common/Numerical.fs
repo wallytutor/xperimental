@@ -59,6 +59,37 @@ module Numerical =
         let step = (stop - start) / float (num - 1)
         Array.init num (fun i -> start + float i * step)
 
+    /// Similar to NumPy arange, but always includes both start and stop values.
+    /// If step does not exactly land on stop, stop is appended as the last element.
+    let arangeInclusive (start: float) (stop: float) (step: float) : float array =
+        if step = 0.0 then
+            invalidArg "step" "step must be non-zero"
+
+        if start = stop then
+            [| start |]
+        else
+            let span = stop - start
+            if span * step < 0.0 then
+                invalidArg "step" "step sign does not move from start toward stop"
+
+            let values = System.Collections.Generic.List<float>()
+            let eps = abs step * 1.0e-12 + 1.0e-15
+            let mutable current = start
+            values.Add current
+
+            let keepGoing (x: float) =
+                if step > 0.0 then x <= stop + eps else x >= stop - eps
+
+            let mutable next = current + step
+            while keepGoing next do
+                values.Add next
+                next <- next + step
+
+            if abs (values.[values.Count - 1] - stop) > eps then
+                values.Add stop
+
+            values.ToArray()
+
     // TODO: use something more in the sense of what is in majordome.
     let geometricSpace (start: float) (stop: float) (num: int) : float array =
         let xs = 1.0 + start
