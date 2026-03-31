@@ -149,6 +149,61 @@ module Main =
     let relaxSolution (xNew: float array) (xOld: float array) (alpha: float) : float array =
         Array.map2 (fun newValue oldValue -> alpha * newValue + (1.0 - alpha) * oldValue) xNew xOld
 
+    let innerLoop
+        (timeStep: float)
+        (previousTimeXc: float array)
+        (previousTimeXn: float array)
+        (tol: float)
+        (relaxation: float)
+        (hcInf: float)
+        (hnInf: float)
+        (xcInf: float)
+        (xnInf: float)
+        (buildSystem: float array -> float -> float -> float -> float array -> float array * float array * float array * float array)
+        (updateDiff: float array -> float array -> float array * float array)
+        (solveTridiagonal: float array -> float array -> float array -> float array -> float array)
+        (relax: float array -> float array -> float -> float array)
+        (xcIter: float array)
+        (xnIter: float array)
+        : float array * float array * float * bool =
+
+        let oldXc = Array.copy xcIter
+        let oldXn = Array.copy xnIter
+
+        let carbonDiffField, nitrogenDiffField = updateDiff oldXc oldXn
+
+        let carbonTask =
+            Task.Run(fun () ->
+                let aC, bC, cC, dC = buildSystem carbonDiffField hcInf xcInf timeStep previousTimeXc
+                solveTridiagonal aC bC cC dC
+            )
+
+        let nitrogenTask =
+            Task.Run(fun () ->
+                let aN, bN, cN, dN = buildSystem nitrogenDiffField hnInf xnInf timeStep previousTimeXn
+                solveTridiagonal aN bN cN dN
+            )
+
+        Task.WaitAll [| carbonTask :> Task; nitrogenTask :> Task |]
+        let xcNew = carbonTask.Result
+        let xnNew = nitrogenTask.Result
+
+        let xcNext = relax xcNew oldXc relaxation
+        let xnNext = relax xnNew oldXn relaxation
+
+        let maxC =
+            Array.map2 (fun newValue oldValue -> abs (newValue - oldValue)) xcNext oldXc
+            |> Array.max
+
+        let maxN =
+            Array.map2 (fun newValue oldValue -> abs (newValue - oldValue)) xnNext oldXn
+            |> Array.max
+
+        let residual = max maxC maxN
+        let converged = residual < tol
+
+        xcNext, xnNext, residual, converged
+
     let outerLoop
         (timeStep: float)
         (previousTimeXc: float array)
@@ -174,41 +229,29 @@ module Main =
         let mutable residual = 0.0
 
         while not converged && iteration < maxIters do
-            let oldXc = Array.copy xcIter
-            let oldXn = Array.copy xnIter
+            let xcNext, xnNext, stepResidual, stepConverged =
+                innerLoop
+                    timeStep
+                    previousTimeXc
+                    previousTimeXn
+                    tol
+                    relaxation
+                    hcInf
+                    hnInf
+                    xcInf
+                    xnInf
+                    buildSystem
+                    updateDiff
+                    solveTridiagonal
+                    relax
+                    xcIter
+                    xnIter
 
-            let carbonDiffField, nitrogenDiffField = updateDiff oldXc oldXn
-
-            let carbonTask =
-                Task.Run(fun () ->
-                    let aC, bC, cC, dC = buildSystem carbonDiffField hcInf xcInf timeStep previousTimeXc
-                    solveTridiagonal aC bC cC dC
-                )
-
-            let nitrogenTask =
-                Task.Run(fun () ->
-                    let aN, bN, cN, dN = buildSystem nitrogenDiffField hnInf xnInf timeStep previousTimeXn
-                    solveTridiagonal aN bN cN dN
-                )
-
-            Task.WaitAll [| carbonTask :> Task; nitrogenTask :> Task |]
-            let xcNew = carbonTask.Result
-            let xnNew = nitrogenTask.Result
-
-            xcIter <- relax xcNew oldXc relaxation
-            xnIter <- relax xnNew oldXn relaxation
-
-            let maxC =
-                Array.map2 (fun newValue oldValue -> abs (newValue - oldValue)) xcIter oldXc
-                |> Array.max
-
-            let maxN =
-                Array.map2 (fun newValue oldValue -> abs (newValue - oldValue)) xnIter oldXn
-                |> Array.max
-
-            residual <- max maxC maxN
+            xcIter    <- xcNext
+            xnIter    <- xnNext
+            residual  <- stepResidual
             iteration <- iteration + 1
-            converged <- residual < tol
+            converged <- stepConverged
 
         xcIter, xnIter, converged, iteration, residual
 
