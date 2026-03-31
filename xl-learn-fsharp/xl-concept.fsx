@@ -10,6 +10,7 @@
 open LibraryXl.Common
 open LibraryXl.Slycke
 open System.IO
+open System.Threading.Tasks
 
 module Main =
 
@@ -189,12 +190,22 @@ module Main =
             // 2) Update matrix diagonals and RHS.
             let carbonDiffField, nitrogenDiffField = updateDiffusivities oldXc oldXn
 
-            let aC, bC, cC, dC = buildDiffusionSystem carbonDiffField hc_inf xc_inf timeStep previousTimeXc
-            let aN, bN, cN, dN = buildDiffusionSystem nitrogenDiffField hn_inf xn_inf timeStep previousTimeXn
+            // 3) Solve carbon and nitrogen systems concurrently.
+            let carbonTask =
+                Task.Run(fun () ->
+                    let aC, bC, cC, dC = buildDiffusionSystem carbonDiffField hc_inf xc_inf timeStep previousTimeXc
+                    Numerical.tdma aC bC cC dC
+                )
 
-            // 3) Solve the linear systems.
-            let xcNew = Numerical.tdma aC bC cC dC
-            let xnNew = Numerical.tdma aN bN cN dN
+            let nitrogenTask =
+                Task.Run(fun () ->
+                    let aN, bN, cN, dN = buildDiffusionSystem nitrogenDiffField hn_inf xn_inf timeStep previousTimeXn
+                    Numerical.tdma aN bN cN dN
+                )
+
+            Task.WaitAll [| carbonTask :> Task; nitrogenTask :> Task |]
+            let xcNew = carbonTask.Result
+            let xnNew = nitrogenTask.Result
 
             // 4) Relax the nonlinear updates.
             xcIter <- relaxSolution xcNew oldXc relaxation_factor
