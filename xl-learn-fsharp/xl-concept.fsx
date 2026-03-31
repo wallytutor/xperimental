@@ -11,16 +11,41 @@ open LibraryXl.Common
 open LibraryXl.Slycke
 
 module Main =
-    let yc = 0.0023
-    let yn = 0.0000
+
+    //  Mass transfer coefficients:
+    let hc_inf = 1.0e-05
+    let hn_inf = 1.0e-05
+
+    // External concentration for BCs:
+    let xc_inf = 0.011
+    let xn_inf = 0.005
+
+    // Initial conditions:
+    let yc_ini = 0.0023
+    let yn_ini = 0.0000
+
+    // Temperature in K (operation conditions):
     let temperature = 1173.0
+
+    // Space discretization:
+    let num_points = 100
+    let domain_depth = 0.002
+
+    // Time step for transient simulations:
+    let tau = 1.0
+
+    // Relaxation factor for iterative solvers:
+    let relaxation_factor = 0.5
+
+    // maximum number of iterations:
+    let max_iters = 20
 
     let model = Models.getModel ()
 
     let mass2Mole = Models.getMassFractionToMolarFractionConverter ()
     let mole2Mass = Models.getMolarFractionToMassFractionConverter ()
 
-    let x = mass2Mole [| yc; yn |]
+    let x = mass2Mole [| yc_ini; yn_ini |]
     let y = mole2Mass [| x.[0]; x.[1] |]
 
     let xc = x.[0]
@@ -36,8 +61,7 @@ module Main =
 
     Numerical.runTests ()
 
-    let num_points = 100
-    let domain_depth = 0.002
+
 
     let z = Numerical.linearSpace 0.0 domain_depth num_points
     let dz = Array.map2 (fun zi zj -> zj - zi) z[.. num_points - 2] z[1 ..]
