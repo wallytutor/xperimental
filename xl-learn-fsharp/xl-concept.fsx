@@ -30,7 +30,7 @@ module Main =
     let temperature = 1173.0
 
     // Space discretization:
-    let num_points = 100
+    let num_points = 200
     let domain_depth = 0.002
 
     // Time step for transient simulations:
@@ -149,32 +149,23 @@ module Main =
     let relaxSolution (xNew: float array) (xOld: float array) (alpha: float) : float array =
         Array.map2 (fun newValue oldValue -> alpha * newValue + (1.0 - alpha) * oldValue) xNew xOld
 
-    let xcArray = Array.create num_points xc
-    let xnArray = Array.create num_points xn
+    let outerLoop
+        (timeStep: float)
+        (previousTimeXc: float array)
+        (previousTimeXn: float array)
+        (maxIters: int)
+        (tol: float)
+        (relaxation: float)
+        (hcInf: float)
+        (hnInf: float)
+        (xcInf: float)
+        (xnInf: float)
+        (buildSystem: float array -> float -> float -> float -> float array -> float array * float array * float array * float array)
+        (updateDiff: float array -> float array -> float array * float array)
+        (solveTridiagonal: float array -> float array -> float array -> float array -> float array)
+        (relax: float array -> float array -> float -> float array)
+        : float array * float array * bool * int * float =
 
-    let mutable xcSolution = Array.copy xcArray
-    let mutable xnSolution = Array.copy xnArray
-
-    let mutable finalConverged = false
-    let mutable finalIteration = 0
-    let mutable finalResidual = 0.0
-
-    // Store transient results as mass fractions (including initial state at index 0).
-    let ycResults = Array.zeroCreate<float array> (nTimeSteps + 1)
-    let ynResults = Array.zeroCreate<float array> (nTimeSteps + 1)
-
-    let yc0, yn0 = convertMoleToMassFields xcSolution xnSolution
-    ycResults.[0] <- yc0
-    ynResults.[0] <- yn0
-
-    for k in 0 .. nTimeSteps - 1 do
-        let timeStep = dt.[k]
-
-        // Previous physical time level (fixed for this transient step).
-        let previousTimeXc = Array.copy xcSolution
-        let previousTimeXn = Array.copy xnSolution
-
-        // Initial nonlinear guess at this time step.
         let mutable xcIter = Array.copy previousTimeXc
         let mutable xnIter = Array.copy previousTimeXn
 
@@ -182,36 +173,31 @@ module Main =
         let mutable iteration = 0
         let mutable residual = 0.0
 
-        while not converged && iteration < max_iters do
-            // 1) Store old nonlinear iterate.
+        while not converged && iteration < maxIters do
             let oldXc = Array.copy xcIter
             let oldXn = Array.copy xnIter
 
-            // 2) Update matrix diagonals and RHS.
-            let carbonDiffField, nitrogenDiffField = updateDiffusivities oldXc oldXn
+            let carbonDiffField, nitrogenDiffField = updateDiff oldXc oldXn
 
-            // 3) Solve carbon and nitrogen systems concurrently.
             let carbonTask =
                 Task.Run(fun () ->
-                    let aC, bC, cC, dC = buildDiffusionSystem carbonDiffField hc_inf xc_inf timeStep previousTimeXc
-                    Numerical.tdma aC bC cC dC
+                    let aC, bC, cC, dC = buildSystem carbonDiffField hcInf xcInf timeStep previousTimeXc
+                    solveTridiagonal aC bC cC dC
                 )
 
             let nitrogenTask =
                 Task.Run(fun () ->
-                    let aN, bN, cN, dN = buildDiffusionSystem nitrogenDiffField hn_inf xn_inf timeStep previousTimeXn
-                    Numerical.tdma aN bN cN dN
+                    let aN, bN, cN, dN = buildSystem nitrogenDiffField hnInf xnInf timeStep previousTimeXn
+                    solveTridiagonal aN bN cN dN
                 )
 
             Task.WaitAll [| carbonTask :> Task; nitrogenTask :> Task |]
             let xcNew = carbonTask.Result
             let xnNew = nitrogenTask.Result
 
-            // 4) Relax the nonlinear updates.
-            xcIter <- relaxSolution xcNew oldXc relaxation_factor
-            xnIter <- relaxSolution xnNew oldXn relaxation_factor
+            xcIter <- relax xcNew oldXc relaxation
+            xnIter <- relax xnNew oldXn relaxation
 
-            // 5) Check convergence.
             let maxC =
                 Array.map2 (fun newValue oldValue -> abs (newValue - oldValue)) xcIter oldXc
                 |> Array.max
@@ -222,29 +208,80 @@ module Main =
 
             residual <- max maxC maxN
             iteration <- iteration + 1
-            converged <- residual < tolerance
+            converged <- residual < tol
 
-        // Advance the physical solution to t[k + 1].
-        xcSolution <- xcIter
-        xnSolution <- xnIter
+        xcIter, xnIter, converged, iteration, residual
 
-        // Convert current solution to mass fractions and store at this time level.
-        let ycStep, ynStep = convertMoleToMassFields xcSolution xnSolution
-        ycResults.[k + 1] <- ycStep
-        ynResults.[k + 1] <- ynStep
+    let integrate
+        (timePoints: float array)
+        (timeSteps: float array)
+        (xcInitial: float array)
+        (xnInitial: float array)
+        (convertMoleToMass: float array -> float array -> float array * float array)
+        (solveStep: float -> float array -> float array -> float array * float array * bool * int * float)
+        : float array array * float array array * bool * int * float =
 
-        finalConverged <- converged
-        finalIteration <- iteration
-        finalResidual <- residual
+        let nSteps = Array.length timeSteps
 
-        printfn $"Step {k + 1}/{nTimeSteps} (t = {t.[k + 1]:F1} s) .. iters = {iteration:D2}, residual = {residual:E3}, yCsurf = {ycStep.[0]:F6}, yNsurf = {ynStep.[0]:F6}"
+        let mutable xcSolution = Array.copy xcInitial
+        let mutable xnSolution = Array.copy xnInitial
+
+        let ycResults = Array.zeroCreate<float array> (nSteps + 1)
+        let ynResults = Array.zeroCreate<float array> (nSteps + 1)
+
+        let yc0, yn0 = convertMoleToMass xcSolution xnSolution
+        ycResults.[0] <- yc0
+        ynResults.[0] <- yn0
+
+        let mutable finalConverged = false
+        let mutable finalIteration = 0
+        let mutable finalResidual = 0.0
+
+        for k in 0 .. nSteps - 1 do
+            let xcNext, xnNext, converged, iteration, residual = solveStep timeSteps.[k] xcSolution xnSolution
+
+            xcSolution <- xcNext
+            xnSolution <- xnNext
+
+            let ycStep, ynStep = convertMoleToMass xcSolution xnSolution
+            ycResults.[k + 1] <- ycStep
+            ynResults.[k + 1] <- ynStep
+
+            finalConverged <- converged
+            finalIteration <- iteration
+            finalResidual <- residual
+
+            printfn $"Step {k + 1}/{nSteps} (t = {timePoints.[k + 1]:F1} s) .. iters = {iteration:D2}, residual = {residual:E3}, yCsurf = {ycStep.[0]:F6}, yNsurf = {ynStep.[0]:F6}"
+
+        ycResults, ynResults, finalConverged, finalIteration, finalResidual
+
+    let xcArray = Array.create num_points xc
+    let xnArray = Array.create num_points xn
+
+    let solveStepForCurrentModel (timeStep: float) (previousTimeXc: float array) (previousTimeXn: float array) =
+        outerLoop
+            timeStep
+            previousTimeXc
+            previousTimeXn
+            max_iters
+            tolerance
+            relaxation_factor
+            hc_inf
+            hn_inf
+            xc_inf
+            xn_inf
+            buildDiffusionSystem
+            updateDiffusivities
+            Numerical.tdma
+            relaxSolution
+
+    let ycResults, ynResults, finalConverged, finalIteration, finalResidual =
+        integrate t dt xcArray xnArray convertMoleToMassFields solveStepForCurrentModel
 
     let last = num_points - 1
     printfn $"Final converged ....... {finalConverged}"
     printfn $"Final iterations ...... {finalIteration}"
     printfn $"Final residual ........ {finalResidual:E3}"
-    printfn $"xC surface/depth ...... {xcSolution.[0]:F6} / {xcSolution.[last]:F6}"
-    printfn $"xN surface/depth ...... {xnSolution.[0]:F6} / {xnSolution.[last]:F6}"
     printfn $"yC surface/depth ...... {ycResults.[nTimeSteps].[0]:F6} / {ycResults.[nTimeSteps].[last]:F6}"
     printfn $"yN surface/depth ...... {ynResults.[nTimeSteps].[0]:F6} / {ynResults.[nTimeSteps].[last]:F6}"
 
