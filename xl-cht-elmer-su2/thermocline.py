@@ -227,6 +227,16 @@ def reynolds_number(U_g, cell_block, fluid):
     return fluid.density_inlet * U_g * D / fluid.dynamic_viscosity  # type: ignore
 
 
+def swamee_jain_friction_factor(Re, epsilon, D):
+    """ Calculate friction factor using the Swamee-Jain equation. """
+    return 0.25 / (np.log10(epsilon / (3.7 * D) + 5.74 / Re**0.9))**2
+
+
+def darcy_weisbach_pressure_drop(L, D, rho, v, f=0.05):
+    """ Calculate pressure drop using the Darcy-Weisbach equation."""
+    return f * (L / D) * (rho * v**2) / 2  # type: ignore
+
+
 def air_properties(T):
     air = ct.Solution("airish.yaml")
     air.X = "O2:0.21, N2:0.79"
@@ -251,11 +261,8 @@ def format_evaluation(fn, name, expression, args, units="",
     )))
 
 
-@mj.MajordomePlot.new(
-    size   = (5, 4),
-    xlabel = "Diameter of holes (cm)",
-    ylabel = "Surface-to-volume ratio (1/m)",
-)
+@mj.MajordomePlot.new(size=(5, 4), xlabel="Diameter of holes (cm)",
+                      ylabel="Surface-to-volume ratio (1/m)")
 def plot_surface_to_volume_ratio(cell_block, *, plot):
     func = cell_block.get_surface_to_volume_ratio()
     D_samples = np.linspace(0.010, 0.050, 100)

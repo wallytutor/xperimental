@@ -165,15 +165,38 @@ tc.format_evaluation(fn_Re, "Re", Re, args,
                      formatter=lambda x: f"{x:.0f}")
 ```
 
-With the considered cell geometry, the surface-to-volume ratio of the hexagonal cell is given by:
+<!-- Assume 0.005 as a representative value for the relative roughness of refractory bricks, which have typical relative roughness in the range from 0.001 to 0.01. The friction factor can be estimated using the Swamee-Jain approximation, a simplified version of the implicit Colebrook-White equation given by:
+
+f = \dfrac{0.25}{\left[\log_{10}\left(\dfrac{\epsilon}{3.7D} + \dfrac{5.74}{Re^{0.9}}\right)\right]^2}
+-->
 
 ```{python}
-tc.format_evaluation(fn_S_V, "S_V", S_V, args,
-                     formatter=lambda x: f"{x:.3f}")
+rho = num_rho_g_h
+v = fn_U_g(*args)
+
+# XXX check use, too high for transitional flow!
+# f = tc.swamee_jain_friction_factor(fn_Re(*args), 0.008, num_D_h)
+
+# m, absolute roughness of the hole wall
+eps = 0.0002
+
+# relative roughness of the hole wall
+rel = eps / num_D_h
+
+f = 0.05
+dp = tc.darcy_weisbach_pressure_drop(L=num_h_t, D=num_D_h, rho=rho, v=v, f=f)
 ```
 
 ```{python}
+%%md
+Assuming a roughness of {eps*1000:.1f} mm, thus a relative roughness of {rel:.3f} for the considered hole diameter. Pressure drop can be estimated using the Darcy-Weisbach equation to be in the order of {dp/100:.0f} mbar.
+```
 
+With the considered cell geometry, the surface-to-volume ratio of the hexagonal cell is given by:
+
+```{python}
+tc.format_evaluation(fn_S_V, "S_V", S_V, args, units="1/m",
+                     formatter=lambda x: f"{x:.3f}")
 ```
 
 Below we display the surface-to-volume ratio of the hexagonal cell as a function of the diameter of holes and the fraction of diameter representing wall thickness.
