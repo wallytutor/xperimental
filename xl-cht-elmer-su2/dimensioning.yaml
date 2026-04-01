@@ -1,0 +1,40 @@
+# ---------------------------------------------------------------------
+
+# Height of the thermocline model [m]
+h_t: 15.0
+
+# Stored energy in the thermocline model [J]
+H_t: 36
+
+# Target nominal operating power (charging) [W]
+P_c: 6.0
+
+# Target nominal operating power (discharging) [W]
+P_d: 2.0
+
+# Hot working temperature [K]
+T_h: 873.15
+
+# Cold working temperature [K]
+T_c: 300.00
+
+# ---------------------------------------------------------------------
+
+# Fraction of diameter representing wall thickness.
+m_h: 1.0
+
+# Diameter of holes [m]
+D_h: 0.025
+
+# ---------------------------------------------------------------------
+
+# Density of solid [kg/m³]
+rho_s: 2800.0
+
+# Specific heat capacity of solid [J/kg-K]
+c_ps:  1000.0
+
+# Thermal conductivity of solid [W/m-K]
+k_s:   2.0
+
+# ---------------------------------------------------------------------
