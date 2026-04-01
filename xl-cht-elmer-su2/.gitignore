@@ -4,6 +4,11 @@
 # Virtual environment:
 .venv
 
+# Report files:
+*.html
+*.pdf
+*.quarto_ipynb
+
 # Generated mesh files:
 *.brep
 *.msh
