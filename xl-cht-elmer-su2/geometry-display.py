@@ -3,7 +3,7 @@ import math
 import gmsh
 
 
-MESH_FILE = "honeycomb_1_12.msh"
+MESH_FILE = "model-elmer/honeycomb_1_12.msh"
 N_FOLDS = 12
 
 

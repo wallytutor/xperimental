@@ -3,24 +3,26 @@
 from majordome.simulation import GmshOCCModel
 from majordome.simulation import GeometricProgression
 from math import cos, sin, tan, pi as PI
+from pathlib import Path
 
 #region: parameters
+HERE = Path(__file__).parent
 NAME = "honeycomb_1_12"
 
 # Height of the domain [m]
-H = 0.05
+H = 1.0
 
 # Radius of the hole [m]
-R = 0.030
+R = 0.05
 
 # Distance between holes centers [m]
-L = 0.10
+L = 0.20
 
 # XXX: experimental, make a hole in the middle!
 HOLED = True
 
 # Radius splitting fluid in 2 parts [m]
-r = 0.75 * R if not HOLED else 0.05 * R
+r = 0.75 * R if not HOLED else 0.025 * R
 
 # Number of elements along the hole arc:
 HOLE_ARC_ELEMENTS = 10
@@ -38,8 +40,8 @@ DR_INTERFACE = 0.0001
 # Target element size near outer wall [m]
 DR_OUTER = 0.0010
 
-# Number of layers in mesh extrusion:
-NUM_LAYERS = 50
+# Number of layers in mesh extrusion (200/m):
+NUM_LAYERS = int(1 + 200 * H)
 
 # 1/12 sector: 30-degree wedge (0° to 30°)
 ANGLE = PI / 6
@@ -282,14 +284,14 @@ with GmshOCCModel(name=NAME, render=render, **options) as model:
     fluid_model(model, p_origin, p_inner_0, p_inner_30, interface_arc)
     model.synchronize()
     model.generate_mesh(dim=3)
-    model.dump(f"../model-su2/{NAME}_fluid.su2")
+    model.dump(f"{HERE}/model-su2/{NAME}_fluid.su2")
 
 with GmshOCCModel(name=NAME, render=render, **options) as model:
     p_origin, p_inner_0, p_inner_30, interface_arc = cht_arc(model)
     solid_model(model, p_origin, p_inner_0, p_inner_30, interface_arc)
     model.synchronize()
     model.generate_mesh(dim=3)
-    model.dump(f"../model-su2/{NAME}_solid.su2")
+    model.dump(f"{HERE}/model-su2/{NAME}_solid.su2")
 
 # XXX: only for Elmer, otherwise NPOIN is wrong in SU2 mesh!
 options["Mesh.ElementOrder"] = 2
@@ -300,4 +302,4 @@ with GmshOCCModel(name=NAME, render=render, **options) as model:
     solid_model(model, p_origin, p_inner_0, p_inner_30, interface_arc)
     model.synchronize()
     model.generate_mesh(dim=3)
-    model.dump(f"{NAME}_elmer.msh")
+    model.dump(f"{HERE}/model-elmer/{NAME}.msh")
