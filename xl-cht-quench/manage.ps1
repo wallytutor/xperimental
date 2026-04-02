@@ -130,13 +130,20 @@ if (-not (Test-Path "$script:ElmerMesh\partitioning.$script:NumProc")) {
     Invoke-ElmerGridPartition
 }
 
-# $pidWait = Start-SimulationStep -SifFile "0-init.sif"
+Remove-Item -Path "$PSScriptRoot\model\init.result*" `
+    -Recurse -Force -ErrorAction SilentlyContinue
 
-# if ($pidWait -ne $null) {
-#     Write-Host "Waiting for initialization to complete..."
-#     Wait-Process -Id $pidWait -ErrorAction SilentlyContinue
-# }
+Remove-Item -Path "$PSScriptRoot\model\results" `
+    -Recurse -Force -ErrorAction SilentlyContinue
 
-# Remove results from init here!
+$pidWait = Start-SimulationStep -SifFile "0-init.sif"
 
-Start-SimulationStep -SifFile "1-case.sif"
+if ($pidWait -ne $null) {
+    Write-Host "Waiting for initialization to complete..."
+    Wait-Process -Id $pidWait -ErrorAction SilentlyContinue
+}
+
+Remove-Item -Path "$PSScriptRoot\model\results" `
+    -Recurse -Force -ErrorAction SilentlyContinue
+
+$_pid = Start-SimulationStep -SifFile "1-case.sif"
