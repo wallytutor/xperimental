@@ -23,10 +23,13 @@ jupyter: python3
 ---
 
 ```{python}
-%load_ext majordome.magic
-```
+try:
+    ip = get_ipython()
+    if "majordome.magic" not in ip.extension_manager.loaded:
+        ip.run_line_magic('load_ext', 'majordome.magic')
+except:
+    pass
 
-```{python}
 import thermocline as tc
 import numpy as np
 import sympy as sp
@@ -225,7 +228,6 @@ Below we display the surface-to-volume ratio of the hexagonal cell as a function
 #| fig-align: center
 #| out-width: 80%
 p = tc.plot_surface_to_volume_ratio(cell_block)
-p.figure
 ```
 
 ```{=latex}
@@ -303,6 +305,10 @@ h &= c_pG_0\left(\dfrac{c_p\mu}{k}\right)^{-2/3}\left[
 $$
 
 where properties are evaluated at film temperature, $G_0=wS^{-1}$ is the superficial mass flux (with $w$ the mass flow rate and $S$ the column empty cross-section); $\psi$ is a particle-shape factor with defined value 1 for spheres and fitted to 0.92 for cylindrical pellets.
+
+```{=latex}
+\newpage
+```
 
 # References {.unnumbered}
 
