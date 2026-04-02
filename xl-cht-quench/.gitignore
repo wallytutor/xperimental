@@ -1,3 +1,4 @@
+.ipynb_checkpoints/*
 venv/
 stop.ps1
 model/ELMERSOLVER_PID
