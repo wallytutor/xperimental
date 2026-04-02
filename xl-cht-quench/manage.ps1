@@ -1,3 +1,9 @@
+param (
+    [switch]$RebuildMesh,
+    [switch]$Reinitialize,
+    [switch]$Simulate
+)
+
 $script:PyEnv = [PSCustomObject]@{
     Version = "3.12";
     Path    = "$PSScriptRoot\venv"
@@ -99,6 +105,9 @@ function Start-SimulationStep {
         [string]$SifFile
     )
     Push-Location "$PSScriptRoot\model"
+
+    Remove-Item -Path "results" -Recurse -Force -ErrorAction SilentlyContinue
+
     $pidValue = $null
 
     try {
@@ -111,39 +120,65 @@ function Start-SimulationStep {
     return $pidValue
 }
 
-if (-not (Test-Path $PyEnv.Path)) {
-    Write-Host "Creating virtual environment at: $PyEnv.Path"
-    & uv venv --seed --python $PyEnv.Version $PyEnv.Path
-    & uv pip install -r "$PSScriptRoot\requirements.txt" --no-warn-script-location
+function Start-Workflow {
+    if ($RebuildMesh) {
+        Write-Host "Rebuilding mesh..."
+        Remove-Item -Path $script:MeshFile, $script:ElmerMesh `
+            -Recurse -Force -ErrorAction SilentlyContinue
+    }
+
+    if ($Reinitialize) {
+        Write-Host "Reinitializing simulation..."
+        Remove-Item -Path "$PSScriptRoot\model\init.result*" `
+            -Recurse -Force -ErrorAction SilentlyContinue
+    }
+
+    if (-not (Test-Path $PyEnv.Path)) {
+        Write-Host "Creating virtual environment at: $PyEnv.Path"
+        & uv venv --seed --python $PyEnv.Version $PyEnv.Path
+        & uv pip install -r "$PSScriptRoot\requirements.txt" --no-warn-script-location
+    }
+
+    if (-not $env:VIRTUAL_ENV) {
+        Write-Host "Activating virtual environment..."
+        . "$($PyEnv.Path)\Scripts\Activate.ps1"
+    }
+
+    $pathMesh = $script:ElmerMesh
+    $pathPart = "$script:ElmerMesh\partitioning.$script:NumProc"
+
+    if (-not (Test-Path $pathMesh)) {
+        Invoke-ElmerGridConversion
+    }
+
+    if (-not (Test-Path $pathPart)) {
+        Invoke-ElmerGridPartition
+    }
+
+    if (-not (Test-Path $pathPart)) {
+        Write-Host "Cannot continue without partitioned mesh." `
+            -ForegroundColor Red
+        Write-Host "Please check the ElmerGrid output for errors." `
+            -ForegroundColor Red
+        exit 1
+    }
+
+    if (-not (Test-Path "model\init.result*")) {
+        $pidWait = Start-SimulationStep -SifFile "0-init.sif"
+
+        if ($pidWait -ne $null) {
+            Write-Host "Waiting for initialization to complete..."
+            Wait-Process -Id $pidWait -ErrorAction SilentlyContinue
+        }
+
+        $Simulate = $true
+    }
+
+    if ($Simulate) {
+        Write-Host "Starting simulation..."
+        Start-SimulationStep -SifFile "1-case.sif"
+        exit 0
+    }
 }
 
-if (-not $env:VIRTUAL_ENV) {
-    Write-Host "Activating virtual environment..."
-    . "$($PyEnv.Path)\Scripts\Activate.ps1"
-}
-
-if (-not (Test-Path $script:ElmerMesh)) {
-    Invoke-ElmerGridConversion
-}
-
-if (-not (Test-Path "$script:ElmerMesh\partitioning.$script:NumProc")) {
-    Invoke-ElmerGridPartition
-}
-
-Remove-Item -Path "$PSScriptRoot\model\init.result*" `
-    -Recurse -Force -ErrorAction SilentlyContinue
-
-Remove-Item -Path "$PSScriptRoot\model\results" `
-    -Recurse -Force -ErrorAction SilentlyContinue
-
-$pidWait = Start-SimulationStep -SifFile "0-init.sif"
-
-if ($pidWait -ne $null) {
-    Write-Host "Waiting for initialization to complete..."
-    Wait-Process -Id $pidWait -ErrorAction SilentlyContinue
-}
-
-Remove-Item -Path "$PSScriptRoot\model\results" `
-    -Recurse -Force -ErrorAction SilentlyContinue
-
-$_pid = Start-SimulationStep -SifFile "1-case.sif"
+Start-Workflow
