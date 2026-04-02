@@ -1,13 +1,11 @@
 # -*- coding: utf-8 -*-
 import cantera as ct
 import majordome as mj
-import matplotlib.pyplot as plt
 import numpy as np
 import sympy as sp
 
-from inspect import signature
-from IPython.display import display, Markdown
-from textwrap import dedent
+from itertools import cycle
+from matplotlib import cm
 
 
 class SymbolicTracker:
@@ -244,23 +242,6 @@ def air_properties(T):
     return air.density_mass, air.enthalpy_mass, air.viscosity
 
 
-def format_evaluation(fn, name, expression, args, units="",
-                      formatter=lambda x: f"{x:.3g}"):
-    expr  = sp.latex(sp.simplify(expression))
-
-    try:
-        value = formatter(fn(*args))
-    except Exception as e:
-        raise ValueError(f"Required symbols: {signature(fn)}; {e}")
-
-    return display(Markdown(dedent(f"""\
-        $$
-        {name} = {expr} = {value}\\:\\mathrm{{{units}}}
-        $$
-        """
-    )))
-
-
 @mj.MajordomePlot.new(size=(5, 4), xlabel="Diameter of holes (cm)",
                       ylabel="Surface-to-volume ratio (1/m)")
 def plot_surface_to_volume_ratio(cell_block, *, plot):
@@ -271,8 +252,13 @@ def plot_surface_to_volume_ratio(cell_block, *, plot):
     _, ax = plot.subplots()
     ax = ax[0]
 
+    color_map = cm.get_cmap("tab10")
+    color_cycle = cycle(color_map.colors) # type: ignore
+
     for m in m_samples:
         ratio_sv = func(D_samples, m)
-        ax.plot(100*D_samples, ratio_sv, label=f"m={m:.1f}")
+        color = next(color_cycle)
+        ax.plot(100*D_samples, ratio_sv, color=color, label=f"m={m:.1f}")
 
     ax.legend(loc=1, fontsize="small")
+    return plot

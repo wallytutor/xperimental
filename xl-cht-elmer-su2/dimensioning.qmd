@@ -28,10 +28,22 @@ jupyter: python3
 
 ```{python}
 import thermocline as tc
+import numpy as np
+import sympy as sp
 import yaml
 ```
 
+```{=latex}
+\newpage
+```
+
 # Regenerative heat exchanger model
+
+In this section we present a simple model for the dimensioning of a thermocline energy storage system similar to a [regenerative heat exchanger](https://en.wikipedia.org/wiki/Regenerative_heat_exchanger). It is based on the use of hexagonal cells with circular holes as the solid matrix for the thermocline. The use of hexagonal cells allows for a high packing density and a large surface area for heat transfer; the calculation of the surface-to-volume ratio for this geometry is straightforward and presented in the end. It also includes the estimation of the number of cells in the cross section, thus the system diameter for a given total height and stored energy.
+
+Other parameters relevant to the setup of a CFD simulation of the system are also estimated, such as the power per cell, the fluid injection velocity through the holes, and the associated Reynolds number. The model also includes a simple estimation of the pressure drop over the height, which is important for the design of the fluid injection system.
+
+Below we present a summary of the parameters considered for the dimensioning of the system.
 
 ```{python}
 tc.SymbolicTracker.clear()
@@ -105,72 +117,20 @@ args = [
     num_rho_g_h,  #XXX: change if charging/discharging
     num_mu_g_h,   #XXX: change if charging/discharging
 ]
-```
 
-```{python}
-%%md
-| Parameter | Value | Units |
-| --- | --- | --- |
-Stored energy in thermocline                | {num_H_t/MWh:.1f}    | MWh
-Target nominal operating power (charge)     | {num_P_c/MW:.1f}     | MW
-Target nominal operating power (discharge)  | {num_P_d/MW:.1f}     | MW
-Height of thermocline                       | {num_h_t:.1f}        | m
-Hot working temperature                     | {num_T_h:.1f}        | K
-Cold working temperature                    | {num_T_c:.1f}        | K
-Diameter of holes in hexagonal cell         | {num_D_h*100:.1f}    | cm
-Wall thickness scaling factor               | {num_m_h:.1f} | -
-Density of solid material                   | {num_rho_s:.0f}      | kg/m³
-Specific heat capacity of solid material    | {num_c_ps:.1f}       | J/kg-K
-Thermal conductivity of solid material      | {num_k_s:.1f}        | W/m-K
-Enthalpy of cold fluid                      | {num_h_g_c/1e6:.3f}  | MJ/kg
-Enthalpy of hot fluid                       | {num_h_g_h/1e6:.3f}  | MJ/kg
-Density of operating fluid (cold)           | {num_rho_g_c:.2f}    | kg/m³
-Density of operating fluid (hot)            | {num_rho_g_h:.2f}    | kg/m³
-Dynamic viscosity of operating fluid        | {num_mu_g_h*1e6:.2f} | uPa-s
-Surface-to-volume ratio of hexagonal cell   | {fn_S_V(*args):.3f}  | 1/m
-```
+# ---------------------------------------------------------------------
 
-The total cross-sectional area of solid material in the thermocline is given by:
+D_system = np.sqrt(4 * fn_A_t(*args) / np.pi)
 
-```{python}
-tc.format_evaluation(fn_A_t, "A_t", A_t, args, units="m^2",
-                     formatter=lambda x: f"{x:.3f}")
-```
+# Assume 0.005 as a representative value for the relative roughness of
+# refractory bricks, which have typical relative roughness in the range
+# from 0.001 to 0.01. The friction factor can be estimated using the
+# Swamee-Jain approximation, a simplified version of the implicit
+# Colebrook-White equation given by:
+# f = \dfrac{0.25}{\left[
+# \log_{10}\left(\dfrac{\epsilon}{3.7D} + \dfrac{5.74}{Re^{0.9}}\right)
+# \right]^2}
 
-Dividing this by the cross-sectional area of solid material in each hexagonal cell gives the number of cells per cross section, which allows for calculating the power per unit cell:
-
-```{python}
-tc.format_evaluation(fn_P_c, "P_c", P_c, args, units="W/cell",
-                     formatter=lambda x: f"{x:.0f}")
-```
-
-That is equivalent to saying that there should be a total of:
-
-```{python}
-tc.format_evaluation(fn_N_c, "N_c", N_c, args, units="cells",
-                     formatter=lambda x: f"{int(round(x)):d}")
-```
-
-The fluid injection velocity through the holes in the hexagonal cell is given by:
-
-```{python}
-tc.format_evaluation(fn_U_g, "U_g", U_g, args, units="m/s",
-                     formatter=lambda x: f"{x:.1f}")
-```
-
-That allows for calculating the Reynolds number for fluid flow through the holes in the hexagonal cell:
-
-```{python}
-tc.format_evaluation(fn_Re, "Re", Re, args,
-                     formatter=lambda x: f"{x:.0f}")
-```
-
-<!-- Assume 0.005 as a representative value for the relative roughness of refractory bricks, which have typical relative roughness in the range from 0.001 to 0.01. The friction factor can be estimated using the Swamee-Jain approximation, a simplified version of the implicit Colebrook-White equation given by:
-
-f = \dfrac{0.25}{\left[\log_{10}\left(\dfrac{\epsilon}{3.7D} + \dfrac{5.74}{Re^{0.9}}\right)\right]^2}
--->
-
-```{python}
 rho = num_rho_g_h
 v = fn_U_g(*args)
 
@@ -189,20 +149,87 @@ dp = tc.darcy_weisbach_pressure_drop(L=num_h_t, D=num_D_h, rho=rho, v=v, f=f)
 
 ```{python}
 %%md
-Assuming a roughness of {eps*1000:.1f} mm, thus a relative roughness of {rel:.3f} for the considered hole diameter. Pressure drop can be estimated using the Darcy-Weisbach equation to be in the order of {dp/100:.0f} mbar.
+| Parameter | Value | Units |
+| --- | --- | --- |
+Stored energy in thermocline                | {num_H_t/MWh:.1f}    | MWh
+Target nominal operating power (charge)     | {num_P_c/MW:.1f}     | MW
+Target nominal operating power (discharge)  | {num_P_d/MW:.1f}     | MW
+Height of thermocline                       | {num_h_t:.1f}        | m
+Diameter of system                          | {D_system:.1f}       | m
+Hot working temperature                     | {num_T_h:.1f}        | K
+Cold working temperature                    | {num_T_c:.1f}        | K
+Diameter of holes in hexagonal cell         | {num_D_h*100:.1f}    | cm
+Wall thickness scaling factor               | {num_m_h:.1f} | -
+Density of solid material                   | {num_rho_s:.0f}      | kg/m³
+Specific heat capacity of solid material    | {num_c_ps:.1f}       | J/kg-K
+Thermal conductivity of solid material      | {num_k_s:.1f}        | W/m-K
+Enthalpy of cold fluid                      | {num_h_g_c/1e6:.3f}  | MJ/kg
+Enthalpy of hot fluid                       | {num_h_g_h/1e6:.3f}  | MJ/kg
+Density of operating fluid (cold)           | {num_rho_g_c:.2f}    | kg/m³
+Density of operating fluid (hot)            | {num_rho_g_h:.2f}    | kg/m³
+Dynamic viscosity of operating fluid        | {num_mu_g_h*1e6:.2f} | uPa-s
+Surface-to-volume ratio of hexagonal cell   | {fn_S_V(*args):.3f}  | 1/m
 ```
+
+```{python}
+%%md
+The total cross-sectional area of solid material in the thermocline is given by:
+
+$$
+A_t = {sp.latex(A_t.simplify()):s}
+\approx {fn_A_t(*args):.3f}\:\mathrm{m^2}
+$$
+
+what requires a system diameter of {D_system:.1f} m for the considered cell geometry and parameters. Dividing this by the cross-sectional area of solid material in each hexagonal cell gives the number of cells per cross section, which allows for calculating the power per unit cell:
+
+$$
+P_c = {sp.latex(P_c.simplify()):s}
+\approx {fn_P_c(*args):.0f}\:\mathrm{W/cell}
+$$
+
+That is equivalent to saying that there should be a total of:
+
+$$
+N_c = {sp.latex(N_c.simplify()):s}
+\approx {fn_N_c(*args):.0f}\:\mathrm{cells}
+$$
+
+The fluid injection velocity through the holes in the hexagonal cell is given by:
+
+$$
+U_g = {sp.latex(U_g.simplify()):s}
+\approx {fn_U_g(*args):.1f}\:\mathrm{m\,s^{-1}}
+$$
+
+That allows for calculating the Reynolds number for fluid flow through the holes in the hexagonal cell:
+
+$$
+Re = {sp.latex(Re.simplify()):s}
+\approx {fn_Re(*args):.0f}
+$$
+
+Assuming a roughness of {eps*1000:.1f} mm, thus a relative roughness of {rel:.3f} for the considered hole diameter. Pressure drop can be estimated using the Darcy-Weisbach equation to be in the order of {dp/100:.0f} mbar.
 
 With the considered cell geometry, the surface-to-volume ratio of the hexagonal cell is given by:
 
-```{python}
-tc.format_evaluation(fn_S_V, "S_V", S_V, args, units="1/m",
-                     formatter=lambda x: f"{x:.3f}")
-```
+$$
+S_V = {sp.latex(S_V.simplify()):s}
+\approx {fn_S_V(*args):.3f}\:\mathrm{m^{-1}}
+$$
 
 Below we display the surface-to-volume ratio of the hexagonal cell as a function of the diameter of holes and the fraction of diameter representing wall thickness.
+```
 
 ```{python}
-tc.plot_surface_to_volume_ratio(cell_block)
+#| fig-cap: Surface-to-volume ratio of the hexagonal cell
+#| fig-align: center
+#| out-width: 80%
+p = tc.plot_surface_to_volume_ratio(cell_block)
+p.figure
+```
+
+```{=latex}
+\newpage
 ```
 
 # Porous media model

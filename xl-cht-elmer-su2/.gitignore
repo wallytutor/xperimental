@@ -8,6 +8,7 @@
 *.html
 *.pdf
 *.quarto_ipynb
+.ipynb_checkpoints
 
 # Generated mesh files:
 *.brep
