@@ -1,0 +1,30 @@
+Header
+    CHECK KEYWORDS Warn
+    Mesh DB "elmer" "."
+    Include Path "."
+    Results Directory "results"
+End
+
+Include "conditions.sif"
+
+Simulation
+    Max Output Level = 5
+    Solver Input File = case.sif
+    Coordinate System = Cartesian 2D
+    Coordinate Mapping(3) = 1 2 3
+    Convergence Monitor = True
+
+    Simulation Type = Transient
+    Timestepping Method = BDF
+    BDF Order = $(BDF_ORDER)
+
+    ! >> Total duration: 0.001 << !
+    ! Step Duration(3)     =         1e-05         9e-05        0.0009
+    Timestep Sizes(3)      =  1.000000e-06  1.000000e-05  1.000000e-04
+    Timestep Intervals(3)  =            10             9             9
+    Output Intervals(3)    =            10             9             9
+
+    Output File = "init.result"
+    Output Variable 1 = Temperature
+    Binary Output = True
+End

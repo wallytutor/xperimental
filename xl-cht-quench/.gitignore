@@ -1,2 +1,10 @@
 venv/
-*.msh
+stop.ps1
+model/ELMERSOLVER_PID
+model/elmer/*
+model/results/*
+model/*.names
+model/*.msh
+model/log.*
+model/init.result.*
+model/convergence.dat
