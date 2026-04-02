@@ -13,6 +13,14 @@ class SymbolicTracker:
     SYMBOLS = []
 
     @classmethod
+    def get(cls, name):
+        for sym in cls.SYMBOLS:
+            if sym.name == name:
+                return sym
+
+        raise ValueError(f"Symbol with name '{name}' not found.")
+
+    @classmethod
     def clear(cls):
         cls.SYMBOLS.clear()
 
@@ -27,11 +35,13 @@ class SymbolicTracker:
 
     @classmethod
     def lambdify(cls, expr, symbols=None, use_all=True):
-        if symbols is None and not use_all:
-            symbols = sorted(list(expr.free_symbols), key=lambda x: x.name)
-
-        if use_all:
+        # Only use all symbols if none are provided
+        if not symbols and use_all:
             symbols = cls.SYMBOLS
+
+        if symbols is None:
+            symbols = list(expr.free_symbols)
+            symbols = sorted(symbols, key=lambda x: x.name)
 
         return sp.lambdify(symbols, expr, modules="numpy")
 
@@ -145,8 +155,7 @@ class ThermoclineDescription:
     """ Thermocline model based on target operating conditions. """
     def __init__(self):
         self._H_t = SymbolicTracker.sym("H_t", positive=True)
-        self._P_c = SymbolicTracker.sym("P_c", positive=True)
-        self._P_d = SymbolicTracker.sym("P_d", positive=True)
+        self._P_t = SymbolicTracker.sym("P_t", positive=True)
         self._h_t = SymbolicTracker.sym("h_t", positive=True)
         self._T_h = SymbolicTracker.sym("T_h", positive=True)
         self._T_c = SymbolicTracker.sym("T_c", positive=True)
@@ -157,14 +166,9 @@ class ThermoclineDescription:
         return self._h_t
 
     @property
-    def power_charging(self):
-        """ Target nominal operating charging power [W]. """
-        return self._P_c
-
-    @property
-    def power_discharging(self):
-        """ Target nominal operating discharging power [W]. """
-        return self._P_d
+    def power(self):
+        """ Target nominal operating power [W]. """
+        return self._P_t
 
     @property
     def stored_energy(self):
@@ -192,6 +196,19 @@ class ThermoclineDescription:
         return self._H_t / self._h_t  # type: ignore
 
 
+class PressureDropCalculator:
+    def __init__(self, L, D):
+        self._L = L
+        self._D = D
+
+    def darcy_weisbach_pressure_drop(self, rho, v, f=0.05):
+        """ Calculate pressure drop using the Darcy-Weisbach equation."""
+        if callable(f):
+            f = f(rho, v, self._D)
+
+        return f * (self._L / self._D) * (rho * v**2 / 2)
+
+
 def total_cross_sectional_area(solid, thermocline):
     """ Total cross-sectional area of solid material in thermocline [m²]. """
     hv = solid.specific_energy(thermocline.temperature_difference)
@@ -201,17 +218,6 @@ def total_cross_sectional_area(solid, thermocline):
 def cells_per_cross_section(A_t, cell_block):
     """ Number of hexagonal cells per cross section of thermocline. """
     return A_t / cell_block.solid_cross_section  # type: ignore
-
-
-def power_per_cell(thermocline, N, mode="charging"):
-    """ Power per hexagonal cell [W]. """
-    match mode.lower():
-        case "charging":
-            return thermocline.power_charging / N  # type: ignore
-        case "discharging":
-            return thermocline.power_discharging / N  # type: ignore
-        case _:
-            raise ValueError(f"Invalid mode: {mode}")
 
 
 def fluid_injection_velocity(P_n, fluid, cell_block):
@@ -230,9 +236,9 @@ def swamee_jain_friction_factor(Re, epsilon, D):
     return 0.25 / (np.log10(epsilon / (3.7 * D) + 5.74 / Re**0.9))**2
 
 
-def darcy_weisbach_pressure_drop(L, D, rho, v, f=0.05):
-    """ Calculate pressure drop using the Darcy-Weisbach equation."""
-    return f * (L / D) * (rho * v**2) / 2  # type: ignore
+def power_per_cell(thermocline, N):
+    """ Power per hexagonal cell [W]. """
+    return thermocline.power / N  # type: ignore
 
 
 def air_properties(T):
