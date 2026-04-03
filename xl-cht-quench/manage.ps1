@@ -136,7 +136,7 @@ function Start-Workflow {
     if (-not (Test-Path $PyEnv.Path)) {
         Write-Host "Creating virtual environment at: $PyEnv.Path"
         & uv venv --seed --python $PyEnv.Version $PyEnv.Path
-        & uv pip install -r "$PSScriptRoot\requirements.txt" --no-warn-script-location
+        & uv pip install -r "$PSScriptRoot\requirements.txt"
     }
 
     if (-not $env:VIRTUAL_ENV) {
