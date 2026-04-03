@@ -20,9 +20,12 @@ Simulation
 
     ! >> Total duration: 300 << !
     ! Step Duration(3)     =             2            28           270
-    Timestep Sizes(3)      =  1.000000e-02  1.000000e-01  1.000000e+00
-    Timestep Intervals(3)  =           200           280           270
-    Output Intervals(3)    =             1            10             2
+    ! Timestep Sizes(3)      =  1.000000e-02  1.000000e-01  1.000000e+00
+    ! Timestep Intervals(3)  =           200           280           270
+    ! Output Intervals(3)    =             1            10             2
+    Timestep Sizes(3)      =  1.000000e-01  1.000000e+00  1.000000e+00
+    Timestep Intervals(3)  =            20            28           270
+    Output Intervals(3)    =            10             2             2
 
     Restart File = "init.result"
     Restart Variable 1 = Temperature

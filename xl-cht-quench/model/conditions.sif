@@ -29,7 +29,8 @@ $ NONLINEAR_TOL = 1.0e-06;
 $ RELAXATION = 0.3;
 
 ! Equivalent conductivity for the gap material:
-$ K_EQUIV = 0.1;
+! $ K_EQUIV = 0.05; ! ~530 K
+$ K_EQUIV = 0.02;
 
 ! ---------------------------------------------------------------------
 ! Constants
