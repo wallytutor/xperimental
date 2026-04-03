@@ -30,7 +30,8 @@ $ RELAXATION = 0.3;
 
 ! Equivalent conductivity for the gap material:
 ! $ K_EQUIV = 0.05; ! ~530 K
-$ K_EQUIV = 0.02;
+$ K_EQUIV = 0.04;
+$ K_METAL = 25.0;
 
 ! ---------------------------------------------------------------------
 ! Constants
@@ -156,7 +157,7 @@ Material 3
     Emissivity = 0.6
 
     ! Heat Conductivity = 17.0
-    Heat Conductivity = 20.0
+    Heat Conductivity = $(K_METAL)
 
     Heat Capacity = 500
 

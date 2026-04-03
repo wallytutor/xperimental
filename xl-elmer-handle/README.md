@@ -23,6 +23,12 @@ A lightweight C# (`net10.0`) library for building Elmer `.sif` files programmati
 - Programmatic section creation with automatic numeric identifiers
 - Save-to-disk support
 
+## Installation
+
+```bash
+dotnet build Xl.Elmer.Sif
+```
+
 ## Quick Example
 
 ```csharp
