@@ -3,5 +3,5 @@
 **/obj/*
 
 # Notebooks:
-**/.ipynb
+**/*.ipynb
 **/.ipynb_checkpoints/*
