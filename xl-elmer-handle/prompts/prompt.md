@@ -8,4 +8,49 @@ You are a scientific programmer who is an expert in [Elmer](https://github.com/E
 
 - Putting in practice: we should by now be able to reproduce the generation of "sample-1/model.sif" programmatically, and the generated file should be identical to the original one, except for the comments which cannot be machine-generated. Write an example program (that I will execute as .NET interactive from Jupyter) that generates the same .sif file programmatically using the library you created.
 
+- Regarding the setters of material properties, I don't think the design using setters/getters exposed to python is good or safe. It is better to have specific methods for setting each property with the different supported types, so that we can check for the presence of required properties in the specialized solvers. Please modify the library accordingly. For example:
+
+```python
+# This is bad:
+molten.Density = MaterialPropertyValue.IncludeFile(var, "data/rho.dat")
+
+# This is good: the list provides the variables over which the data is
+# tabulated. In general there is just one, but it could be more.
+molten.SetDensityFile("data/rho.dat", ["Temperature"])
+```
+
+- The "Sections.cs" will grow quickly and soon will become unmanageable. Split it into multiple files for each section under a subdirectory "Sections" before the next step. For tabular properties entered dynamically, modify the API as follows:
+
+```python
+# This is bad and does not work yet, do not try to fix it!
+molten.YoungsModulus = MaterialPropertyValue.Tabular(
+    "Temperature",
+    [
+        TabulatedMaterialPoint(298.15, 417.0e9),
+        TabulatedMaterialPoint(1873.15, 417.0e9),
+        TabulatedMaterialPoint(1900.0, 100.0e9),
+        TabulatedMaterialPoint(3000.0, 100.0e9),
+    ],
+    interpolation="",  # "" → emits just "Real" (no interpolation qualifier)
+)
+
+# This is good, please implement it:
+T = [298.15, 1873.15, 1900.0, 3000.0]
+Y = [417.0e9, 417.0e9, 100.0e9, 100.0e9]
+data = list(map(list, zip(T, Y)))
+variables = ["Temperature"]
+molten.SetYoungsModulusTabular(data, variables, interpolation="")
+```
+
+- As it was the case for Sections, the "SpecializedSolvers.cs" file will also grow quickly. Split it into multiple files for each specialized solver under a subdirectory "Solvers" before the next step, which is described in the following snippet:
+
+```python
+# Transform this
+molten = sif.AddMaterial()
+molten.Name = "Molten"
+
+# Into this, and ensure names are unique and mandatory:
+molten = sif.AddMaterial("Molten")
+```
+
 - A minimal syntax highlighter will be available for VSCode for helping manually editing files. It will distinguish between section headers, section entries labels, and section entries values, which may be string, bool, keyword, or numerical types.

@@ -29,7 +29,24 @@ public sealed class SifDocument
         MatcScripts.Add(script ?? throw new ArgumentNullException(nameof(script)));
     }
 
-    public MaterialSection AddMaterial() => AddIndexedSection<MaterialSection, MaterialSection>(Materials, id => new MaterialSection(id));
+    public MaterialSection AddMaterial(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            throw new ArgumentException("Material name cannot be null or empty.", nameof(name));
+        }
+
+        if (Materials.Any(material => string.Equals(material.Name, name, StringComparison.OrdinalIgnoreCase)))
+        {
+            // throw new InvalidOperationException($"A material named '{name}' already exists.");
+            Console.WriteLine($"Warning: A material named '{name}' already exists. Returning existing material.");
+            return Materials.First(material => string.Equals(material.Name, name, StringComparison.OrdinalIgnoreCase));
+        }
+
+        var section = AddIndexedSection<MaterialSection, MaterialSection>(Materials, id => new MaterialSection(id));
+        section.Name = name;
+        return section;
+    }
 
     public BodySection AddBody() => AddIndexedSection<BodySection, BodySection>(Bodies, id => new BodySection(id));
 
@@ -97,6 +114,7 @@ public sealed class SifDocument
         Header.Validate(this);
         Simulation.Validate(this);
         Constants.Validate(this);
+        ValidateMaterialNames();
 
         ValidateSections(Materials);
         ValidateSections(Bodies);
@@ -131,6 +149,23 @@ public sealed class SifDocument
         foreach (var section in sections)
         {
             section.Validate(this);
+        }
+    }
+
+    private void ValidateMaterialNames()
+    {
+        var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var material in Materials)
+        {
+            if (string.IsNullOrWhiteSpace(material.Name))
+            {
+                throw new InvalidOperationException($"Material {material.Id} must have a non-empty Name.");
+            }
+
+            if (!names.Add(material.Name))
+            {
+                throw new InvalidOperationException($"Material names must be unique. Duplicate name: '{material.Name}'.");
+            }
         }
     }
 }

@@ -19,11 +19,16 @@
 # - Comment lines are not generated.
 
 # %%
-import sys
-import os
+import subprocess
 from pathlib import Path
 
 sol_dir = Path(__file__).parent.parent
+subprocess.run(["dotnet", "build", "Xl.Elmer.Sif"], cwd=sol_dir)
+
+# %%
+import sys
+import os
+
 prj_dir = sol_dir / "Xl.Elmer.Sif"
 dll_dir = prj_dir / "bin" / "Debug" / "net9.0"
 
@@ -40,8 +45,6 @@ clr.AddReference("Xl.Elmer.Sif")
 
 from Xl.Elmer.Sif import (
     SifDocument,
-    MaterialPropertyValue,
-    TabulatedMaterialPoint,
     LinearSystemControl,
     NonlinearSystemControl,
     SolverExecution,
@@ -77,6 +80,9 @@ sif.AddMatcScript("NONLINEAR_TOL = 1.0e-06;")
 sif.AddMatcScript("RELAXATION = 0.3;")
 sif.AddMatcScript("K_EQUIV = 0.02;")
 
+# %% [markdown]
+# - Simulation
+
 # %%
 sif.Simulation.MaxOutputLevel = 5
 sif.Simulation.SolverInputFile = "case.sif"
@@ -97,7 +103,39 @@ sif.Simulation.OutputFile = "init.result"
 sif.Simulation.SetParameter("Output Variable 1", "Temperature")
 sif.Simulation.BinaryOutput = True
 
-# %%
-print(sif.Serialize())
+# %% [markdown]
+# - Constants: uses default values if none are supplied
 
 # %%
+sif.Constants.Gravity = [0.0, -1.0, 0.0, 9.82]
+sif.Constants.StefanBoltzmann = 5.670374419e-08
+sif.Constants.PermittivityOfVacuum = 8.85418781e-12
+sif.Constants.PermeabilityOfVacuum = 1.25663706e-6
+sif.Constants.BoltzmannConstant = 1.380649e-23
+sif.Constants.UnitCharge = 1.6021766e-19
+
+# %% [markdown]
+# - Materials
+
+# %%
+vars_temperature = ["Temperature"]
+
+molten = sif.AddMaterial("Molten")
+molten.SetEmissivityConstant(0.9)
+molten.SetPoissonRatioConstant(0.25)
+molten.SetDensityFile("data/rho.dat", vars_temperature)
+molten.SetHeatConductivityFile("data/k.dat", vars_temperature)
+molten.SetHeatCapacityFile("data/cp.dat", vars_temperature)
+molten.SetHeatExpansionCoefficientFile("data/alpha.dat", vars_temperature)
+molten.SetInternalEnergyFile("data/h.dat", vars_temperature)
+
+youngs_temperature = [298.15, 1873.15, 1900.0, 3000.0]
+youngs_value = [417.0e9, 417.0e9, 100.0e9, 100.0e9]
+youngs_data = [list(row) for row in zip(youngs_temperature, youngs_value)]
+
+# "" → emits just "Real" (no interpolation qualifier)
+molten.SetYoungsModulusTabular(youngs_data, vars_temperature, interpolation="")
+molten.SetReferenceTemperatureRaw("$(T_MELT)")
+
+# %%
+print(sif.Serialize())

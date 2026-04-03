@@ -45,11 +45,10 @@ sif.Simulation.MaxOutputLevel = 5;
 sif.Simulation.TimestepSizes = new[] { 0.1, 0.5, 1.0 };
 sif.Simulation.TimestepIntervals = 10;
 
-var material = sif.AddMaterial();
-material.Name = "Steel";
-material.Density = 7800.0;
-material.HeatConductivity = MaterialPropertyValue.Matc("Temperature", "16.2 + 0.01*tx");
-material.HeatCapacity = MaterialPropertyValue.Tabular(
+var material = sif.AddMaterial("Steel");
+material.SetDensityConstant(7800.0);
+material.SetHeatConductivityMatc("Temperature", "16.2 + 0.01*tx");
+material.SetHeatCapacityTabular(
   "Temperature",
   [
     new TabulatedMaterialPoint(293.15, 470.0),

@@ -21,14 +21,29 @@ public abstract record MaterialPropertyValue
         IEnumerable<TabulatedMaterialPoint> points,
         string interpolation = "Linear",
         string valueType = "Real")
-        => new TabularMaterialPropertyValue(variable, points.ToArray(), interpolation, valueType);
+        => new TabularMaterialPropertyValue(
+            new[] { variable },
+            points.Select(point => new[] { point.VariableValue, point.PropertyValue }).ToArray(),
+            interpolation,
+            valueType);
+
+    public static MaterialPropertyValue Tabular(
+        IEnumerable<IEnumerable<double>> data,
+        string[] variables,
+        string interpolation = "Linear",
+        string valueType = "Real")
+        => new TabularMaterialPropertyValue(
+            variables,
+            data.Select(row => row.ToArray()).ToArray(),
+            interpolation,
+            valueType);
 
     public static implicit operator MaterialPropertyValue(double value) => Constant(value);
 
     public static MaterialPropertyValue Raw(string text) => new RawMaterialPropertyValue(text);
 
-    public static MaterialPropertyValue IncludeFile(string variable, string filePath, string valueType = "Real")
-        => new IncludeFileMaterialPropertyValue(variable, filePath, valueType);
+    public static MaterialPropertyValue IncludeFile(string filePath, string[] variables, string valueType = "Real")
+        => new IncludeFileMaterialPropertyValue(filePath, variables, valueType);
 
     internal abstract SifValue ToSifValue();
 }
@@ -73,28 +88,42 @@ public sealed record UserFunctionMaterialPropertyValue(
 }
 
 public sealed record TabularMaterialPropertyValue(
-    string Variable,
-    IReadOnlyList<TabulatedMaterialPoint> Points,
+    string[] Variables,
+    IReadOnlyList<double[]> Rows,
     string Interpolation = "Linear",
     string ValueType = "Real") : MaterialPropertyValue
 {
     internal override SifValue ToSifValue()
     {
-        if (Points.Count == 0)
+        if (Variables.Length == 0)
+        {
+            throw new InvalidOperationException("Tabular material properties require at least one variable.");
+        }
+
+        if (Variables.Any(string.IsNullOrWhiteSpace))
+        {
+            throw new InvalidOperationException("Tabular material property variables cannot be blank.");
+        }
+
+        if (Rows.Count == 0)
         {
             throw new InvalidOperationException("Tabular material properties require at least one point.");
         }
 
         var builder = new StringBuilder();
-        builder.AppendLine($"Variable {Variable}");
+        builder.AppendLine($"Variable {string.Join(" ", Variables)}");
         builder.AppendLine(string.IsNullOrEmpty(Interpolation) ? ValueType : $"{ValueType} {Interpolation}");
 
-        foreach (var point in Points)
+        var expectedColumns = Variables.Length + 1;
+        foreach (var row in Rows)
         {
+            if (row.Length != expectedColumns)
+            {
+                throw new InvalidOperationException($"Each tabular row must contain {expectedColumns} values: {Variables.Length} variable columns and one property-value column.");
+            }
+
             builder.Append("  ");
-            builder.Append(point.VariableValue.ToString(CultureInfo.InvariantCulture));
-            builder.Append(' ');
-            builder.AppendLine(point.PropertyValue.ToString(CultureInfo.InvariantCulture));
+            builder.AppendLine(string.Join(" ", row.Select(value => value.ToString(CultureInfo.InvariantCulture))));
         }
 
         builder.Append("End");
@@ -109,12 +138,22 @@ public sealed record RawMaterialPropertyValue(string Text) : MaterialPropertyVal
     internal override SifValue ToSifValue() => SifValue.Raw(Text);
 }
 
-public sealed record IncludeFileMaterialPropertyValue(string Variable, string FilePath, string ValueType = "Real") : MaterialPropertyValue
+public sealed record IncludeFileMaterialPropertyValue(string FilePath, string[] Variables, string ValueType = "Real") : MaterialPropertyValue
 {
     internal override SifValue ToSifValue()
     {
+        if (Variables.Length == 0)
+        {
+            throw new InvalidOperationException("Include-file material properties require at least one variable.");
+        }
+
+        if (Variables.Any(string.IsNullOrWhiteSpace))
+        {
+            throw new InvalidOperationException("Include-file material property variables cannot be blank.");
+        }
+
         return SifValue.Raw(string.Join(Environment.NewLine,
-            $"Variable {Variable}",
+            $"Variable {string.Join(" ", Variables)}",
             ValueType,
             $"  Include {SifValue.QuoteLiteral(FilePath)}",
             "End"));

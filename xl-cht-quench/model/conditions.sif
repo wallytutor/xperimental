@@ -30,8 +30,8 @@ $ RELAXATION = 0.3;
 
 ! Equivalent conductivity for the gap material:
 ! $ K_EQUIV = 0.05; ! ~530 K
-$ K_EQUIV = 0.04;
-$ K_METAL = 25.0;
+$ K_EQUIV = 0.03;
+$ K_METAL = 50.0;
 
 ! ---------------------------------------------------------------------
 ! Constants
