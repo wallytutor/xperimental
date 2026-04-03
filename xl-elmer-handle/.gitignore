@@ -1,3 +1,6 @@
 # .NET binaries and objects
 **/bin/*
 **/obj/*
+
+# Notebooks:
+**/.ipynb_checkpoints/*

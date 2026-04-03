@@ -1,6 +1,9 @@
-! ---------------------------------------------------------------------
-! Parameters
-! ---------------------------------------------------------------------
+Header
+    CHECK KEYWORDS Warn
+    Mesh DB "elmer" "."
+    Include Path "."
+    Results Directory "results"
+End
 
 ! Overheating temperature of the ingot material (in K):
 $ OVERHEAT = 20.0;
@@ -31,6 +34,28 @@ $ RELAXATION = 0.3;
 ! Equivalent conductivity for the gap material:
 ! $ K_EQUIV = 0.05; ! ~530 K
 $ K_EQUIV = 0.02;
+
+Simulation
+    Max Output Level = 5
+    Solver Input File = case.sif
+    Coordinate System = Cartesian 2D
+    Coordinate Mapping(3) = 1 2 3
+    Convergence Monitor = True
+
+    Simulation Type = Transient
+    Timestepping Method = BDF
+    BDF Order = $(BDF_ORDER)
+
+    ! >> Total duration: 0.001 << !
+    ! Step Duration(3)     =         1e-05         9e-05        0.0009
+    Timestep Sizes(3)      =  1.000000e-06  1.000000e-05  1.000000e-04
+    Timestep Intervals(3)  =            10             9             9
+    Output Intervals(3)    =            10             9             9
+
+    Output File = "init.result"
+    Output Variable 1 = Temperature
+    Binary Output = True
+End
 
 ! ---------------------------------------------------------------------
 ! Constants
@@ -155,8 +180,7 @@ Material 3
     ! Lower value for stainless steel!
     Emissivity = 0.6
 
-    ! Heat Conductivity = 17.0
-    Heat Conductivity = 20.0
+    Heat Conductivity = 17.0
 
     Heat Capacity = 500
 
@@ -411,42 +435,6 @@ Solver 8
     Mask Name   10 = BodyMolten
     Operator    10 = body mean
 End
-
-! ---------------------------------------------------------------------
-! Additional physics
-! ---------------------------------------------------------------------
-
-! Thermal expansion solver:
-! Solver 9
-!     Procedure = "StressSolve" "StressSolver"
-!     Equation = Stress Analysis
-
-!     ! Strong coupling:
-!     Exec Solver = Always
-
-!     ! Weak coupling:
-!     ! Exec Solver = After Timestep
-
-!     Variable = Displacement
-!     Variable DOFs = 2
-
-!     Linear System Solver = Iterative
-!     Linear System Iterative Method = BiCGStab
-!     Linear System Max Iterations = 500
-!     Linear System Convergence Tolerance = 1.0e-10
-!     Linear System Preconditioning = ILU0
-!     Linear System ILUT Tolerance = 1.0e-3
-!     Linear System Abort Not Converged = True
-!     Linear System Residual Output = 10
-!     Linear System Precondition Recompute = 1
-!     BiCGstabl polynomial degree = 2
-
-!     Nonlinear System Convergence Tolerance = $(NONLINEAR_TOL)
-!     Nonlinear System Max Iterations = $(MAX_ITER)
-!     Nonlinear System Newton After Iterations = 3
-!     Nonlinear System Newton After Tolerance = $(100 * NONLINEAR_TOL)
-!     Nonlinear System Relaxation Factor = $(RELAXATION)
-! End
 
 ! ---------------------------------------------------------------------
 ! Equation

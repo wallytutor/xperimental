@@ -6,6 +6,17 @@ public readonly record struct SifValue(string Text)
 {
     public static SifValue Raw(string raw) => new(raw);
 
+    internal static string QuoteLiteral(string input)
+    {
+        if (input.StartsWith('"') && input.EndsWith('"'))
+        {
+            return input;
+        }
+
+        var escaped = input.Replace("\"", "\\\"");
+        return $"\"{escaped}\"";
+    }
+
     public static SifValue From(object? value)
     {
         if (value is null)
@@ -55,12 +66,6 @@ public readonly record struct SifValue(string Text)
 
     private static string Quote(string input)
     {
-        if (input.StartsWith('"') && input.EndsWith('"'))
-        {
-            return input;
-        }
-
-        var escaped = input.Replace("\"", "\\\"");
-        return $"\"{escaped}\"";
+        return QuoteLiteral(input);
     }
 }

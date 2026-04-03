@@ -14,6 +14,11 @@ A lightweight C# (`net10.0`) library for building Elmer `.sif` files programmati
   - `Equation <n>`
   - `Initial Condition <n>`
   - `Boundary Condition <n>`
+- Specialized solver types for `HeatSolve`, `SaveLine`, and `SaveData`
+- Expression-capable material properties with constant, `MATC`, `Lua`, user-library, and tabular forms
+- Linear and nonlinear solver control objects injected into solver bodies
+- Validation before serialization for specialized solver requirements
+- `ElmerGrid` process helpers for conversion and partitioning
 - Consistent PascalCase key serialization
 - Programmatic section creation with automatic numeric identifiers
 - Save-to-disk support
@@ -37,19 +42,29 @@ sif.Simulation.TimestepIntervals = 10;
 var material = sif.AddMaterial();
 material.Name = "Steel";
 material.Density = 7800.0;
-material.HeatConductivity = 43.0;
-material.HeatCapacity = 470.0;
+material.HeatConductivity = MaterialPropertyValue.Matc("Temperature", "16.2 + 0.01*tx");
+material.HeatCapacity = MaterialPropertyValue.Tabular(
+  "Temperature",
+  [
+    new TabulatedMaterialPoint(293.15, 470.0),
+    new TabulatedMaterialPoint(473.15, 510.0)
+  ]);
 
 var equation = sif.AddEquation();
 equation.Name = "HeatEquation";
 
 equation.ActiveSolvers = new[] { 1 };
 
-var solver = sif.AddSolver();
-solver.Equation = "Heat Equation";
-solver.Procedure = "HeatSolve";
-solver.Variable = "Temperature";
-solver.ExecSolver = 1;
+var solver = sif.AddHeatSolver();
+solver.ExecuteWhen = SolverExecution.Always;
+solver.LinearSystem = new LinearSystemControl
+{
+  Solver = "Iterative",
+  IterativeMethod = "BiCGStab",
+  Preconditioning = "ILU0",
+  MaxIterations = 500,
+  ConvergenceTolerance = 1.0e-10
+};
 
 var body = sif.AddBody();
 body.Name = "Workpiece";
@@ -68,4 +83,7 @@ boundary.TargetBoundaries = new[] { 2 };
 boundary.Temperature = 293.15;
 
 sif.Save("case.sif");
+
+var project = new ElmerGridProject(Environment.CurrentDirectory);
+await project.ConvertAsync(ElmerGridFormat.Gmsh, ElmerGridFormat.Elmer, "geometry.msh", "mesh");
 ```

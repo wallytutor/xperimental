@@ -155,8 +155,7 @@ Material 3
     ! Lower value for stainless steel!
     Emissivity = 0.6
 
-    ! Heat Conductivity = 17.0
-    Heat Conductivity = 20.0
+    Heat Conductivity = 17.0
 
     Heat Capacity = 500
 

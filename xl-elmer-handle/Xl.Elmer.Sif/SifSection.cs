@@ -18,6 +18,13 @@ public abstract class SifSection
         }
 
         var normalizedKey = ToPascalCase(key);
+
+        if (value is null)
+        {
+            _parameters.Remove(normalizedKey);
+            return;
+        }
+
         _parameters[normalizedKey] = SifValue.From(value);
     }
 
@@ -46,16 +53,46 @@ public abstract class SifSection
     {
         builder.AppendLine(SectionHeader);
 
-        foreach (var (key, value) in _parameters.OrderBy(kv => kv.Key, StringComparer.Ordinal))
+        foreach (var (key, value) in GetParameters())
         {
-            builder.Append("  ");
-            builder.Append(key);
-            builder.Append(" = ");
-            builder.AppendLine(value.ToString());
+            WriteParameter(builder, key, value);
         }
+
+        WriteAdditionalEntries(builder);
 
         builder.AppendLine("End");
         builder.AppendLine();
+    }
+
+    protected virtual void WriteAdditionalEntries(StringBuilder builder) { }
+
+    protected bool HasParameter(string key)
+    {
+        return _parameters.ContainsKey(ToPascalCase(key));
+    }
+
+    protected void SetRawParameter(string key, SifValue value)
+    {
+        if (string.IsNullOrWhiteSpace(key))
+        {
+            throw new ArgumentException("Parameter key cannot be null or empty.", nameof(key));
+        }
+
+        _parameters[key] = value;
+    }
+
+    protected void RemoveRawParameter(string key)
+    {
+        _parameters.Remove(key);
+    }
+
+    protected virtual IEnumerable<KeyValuePair<string, SifValue>> GetParameters()
+    {
+        return _parameters.OrderBy(kv => kv.Key, StringComparer.Ordinal);
+    }
+
+    protected internal virtual void Validate(SifDocument document)
+    {
     }
 
     protected static string ToPascalCase(string text)
@@ -67,6 +104,22 @@ public abstract class SifSection
             .Select(part => char.ToUpperInvariant(part[0]) + part[1..].ToLowerInvariant());
 
         return string.Concat(pieces);
+    }
+
+    protected static void WriteParameter(StringBuilder builder, string key, SifValue value)
+    {
+        var lines = value.ToString().Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n');
+
+        builder.Append("  ");
+        builder.Append(key);
+        builder.Append(" = ");
+        builder.AppendLine(lines[0]);
+
+        for (var index = 1; index < lines.Length; index++)
+        {
+            builder.Append("    ");
+            builder.AppendLine(lines[index]);
+        }
     }
 }
 
