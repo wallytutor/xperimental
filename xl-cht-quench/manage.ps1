@@ -12,7 +12,7 @@ $script:PyEnv = [PSCustomObject]@{
 $script:MeshFile  = "$PSScriptRoot\model\geometry.msh"
 $script:ElmerMesh = "$PSScriptRoot\model\elmer"
 $script:MergeTol  = 1.0e-05
-$script:NumProc   = 4
+$script:NumProc   = 20
 
 function Invoke-ElmerGridConversion {
     if (-not (Test-Path -Path $script:MeshFile)) {
@@ -133,15 +133,23 @@ function Start-Workflow {
             -Recurse -Force -ErrorAction SilentlyContinue
     }
 
-    if (-not (Test-Path $PyEnv.Path)) {
-        Write-Host "Creating virtual environment at: $PyEnv.Path"
+    $activate = Join-Path $PyEnv.Path "Scripts\\Activate.ps1"
+
+    if (-not (Test-Path $activate)) {
+        Write-Host "Creating virtual environment at: $($PyEnv.Path)"
         & uv venv --seed --python $PyEnv.Version $PyEnv.Path
-        & uv pip install -r "$PSScriptRoot\requirements.txt"
+        if ($LASTEXITCODE -ne 0) { throw "uv venv failed." }
+
+        . $activate
+
+        Write-Host "Installing dependencies..."
+        & uv pip install -r (Join-Path $PSScriptRoot "requirements.txt")
+        if ($LASTEXITCODE -ne 0) { throw "uv pip install failed." }
     }
 
     if (-not $env:VIRTUAL_ENV) {
         Write-Host "Activating virtual environment..."
-        . "$($PyEnv.Path)\Scripts\Activate.ps1"
+        . $activate
     }
 
     $pathMesh = $script:ElmerMesh
