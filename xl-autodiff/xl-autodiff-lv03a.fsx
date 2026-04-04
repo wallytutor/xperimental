@@ -5,37 +5,35 @@
 type Op1<'T> = 'T
 type Op2<'T> = 'T * 'T
 
-// The contract is expressed via static member constraints (SRTP), not an interface type.
-// Any type ^T that provides the members below satisfies the typeclass and works with diff:
-//
-//   Const : float -> ^T              – lift a float constant
-//   Seed  : ^U -> ^T                 – create the active input (Deriv=1 or Var node)
-//   Diff  : ^U * ^T -> ^D            – extract/compute the derivative from the result
-//   ( + ) ( - ) ( * ) ( / ) ( ** )  – arithmetic operators
-//   Sin Cos Tan Exp Log : ^T -> ^T   – math functions (F# built-ins dispatch here via SRTP)
-//
-// 'inline' is mandatory: SRTP constraints are resolved at each call site at compile time.
+// The // 'T = computation type   (Dual or Expr)
+// 'U = variable identity  (float for Dual, string for Expr)
+// 'D = derivative result  (float for Dual, Expr for Expr)
+// Seed creates the active input (Deriv=1 or Var node)
+// Diff extracts/computes the derivative from the result
+type IAutomaticDifferentiation<'T, 'U, 'D> =
+    abstract Seed  : 'U       -> 'T
+    abstract Diff  : 'U * 'T  -> 'D
+    abstract Const : float    -> 'T
+    abstract Add   : Op2<'T>  -> 'T
+    abstract Sub   : Op2<'T>  -> 'T
+    abstract Mul   : Op2<'T>  -> 'T
+    abstract Div   : Op2<'T>  -> 'T
+    abstract Pow   : Op2<'T>  -> 'T
+    abstract Neg   : Op1<'T>  -> 'T
+    abstract Sin   : Op1<'T>  -> 'T
+    abstract Cos   : Op1<'T>  -> 'T
+    abstract Tan   : Op1<'T>  -> 'T
+    abstract Exp   : Op1<'T>  -> 'T
+    abstract Log   : Op1<'T>  -> 'T
 
-/// Lift a float constant into any compatible type.
-let inline konst (c: float) : ^T =
-    (^T : (static member Const : float -> ^T) c)
-
-/// Differentiate f at varId. Works for any type providing Seed and Diff static members.
-let inline diff (varId: ^U) (f: ^T -> ^T) : ^D =
-    (^T : (static member Seed : ^U -> ^T) varId)
-    |> f
-    |> fun result -> (^T : (static member Diff : ^U * ^T -> ^D) (varId, result))
+let diff (b: IAutomaticDifferentiation<'T, 'U, 'D>) (varId: 'U) (f: 'T -> 'T) : 'D =
+    b.Seed varId |> f |> fun result -> b.Diff(varId, result)
 
 // ------------------------------------------------------------------------------------------------
 // Dual
 // ------------------------------------------------------------------------------------------------
 
 type Dual = { Value : float; Deriv : float }
-
-type Dual with // Typeclass members: satisfies SRTP constraints used by konst and diff
-    static member Const (c: float) = { Value = c; Deriv = 0.0 }
-    static member Seed  (x: float) = { Value = x; Deriv = 1.0 }  // active input: Deriv = 1
-    static member Diff  (_ : float, r: Dual) : float = r.Deriv    // extract numeric derivative
 
 type Dual with // Basic arithmetic operations
     static member ( + ) (a: Dual, b: Dual) =
@@ -76,61 +74,93 @@ type Dual with // Common math functions
 // Expr
 // ------------------------------------------------------------------------------------------------
 
-// DU cases use the E-prefix to avoid naming conflicts with the static members below
-// (e.g. union case 'Sin' vs 'static member Sin' would be ambiguous).
 type Expr =
-    | EConst of float
-    | EVar   of string
-    | EAdd   of Op2<Expr>
-    | ESub   of Op2<Expr>
-    | EMul   of Op2<Expr>
-    | EDiv   of Op2<Expr>
-    | EPow   of Op2<Expr>
-    | ENeg   of Op1<Expr>
-    | ESin   of Op1<Expr>
-    | ECos   of Op1<Expr>
-    | ETan   of Op1<Expr>
-    | EExp   of Op1<Expr>
-    | ELog   of Op1<Expr>
+    | Const of float
+    | Var   of string
+    | Add   of Op2<Expr>
+    | Sub   of Op2<Expr>
+    | Mul   of Op2<Expr>
+    | Div   of Op2<Expr>
+    | Pow   of Op2<Expr>
+    | Neg   of Op1<Expr>
+    | Sin   of Op1<Expr>
+    | Cos   of Op1<Expr>
+    | Tan   of Op1<Expr>
+    | Exp   of Op1<Expr>
+    | Log   of Op1<Expr>
+
+type Expr with
+    static member ( + ) (a: Expr, b: Expr) = Add(a, b)
+    static member ( - ) (a: Expr, b: Expr) = Sub(a, b)
+    static member ( * ) (a: Expr, b: Expr) = Mul(a, b)
+    static member ( / ) (a: Expr, b: Expr) = Div(a, b)
+    static member ( ** ) (a: Expr, b: Expr) = Exp(Mul(b, Log a))
+    static member ( ~- ) (a: Expr) = Mul(Const -1.0, a)
 
 module Symbolic =
-    // Symbolic differentiation rules over the Expr tree.
+    // Symbolic differentiation rules, used by the Expr backend.
     let rec diff (v: string) =
         function
-        | EConst _           -> EConst 0.0
-        | EVar x when x = v  -> EConst 1.0
-        | EVar _             -> EConst 0.0
-        | EAdd(a, b)         -> EAdd(diff v a, diff v b)
-        | ESub(a, b)         -> ESub(diff v a, diff v b)
-        | EMul(a, b)         -> EAdd(EMul(diff v a, b), EMul(a, diff v b))
-        | EDiv(a, b)         -> EDiv(ESub(EMul(diff v a, b), EMul(a, diff v b)), EMul(b, b))
-        | EPow(a, b)         -> EMul(EPow(a, b), EAdd(EMul(diff v b, ELog a), EMul(b, EDiv(diff v a, a))))
-        | ENeg a             -> ENeg(diff v a)
-        | ESin a             -> EMul(ECos a, diff v a)
-        | ECos a             -> EMul(ENeg(ESin a), diff v a)
-        | ETan a             -> EDiv(diff v a, EMul(ECos a, ECos a))
-        | EExp a             -> EMul(EExp a, diff v a)
-        | ELog a             -> EDiv(diff v a, a)
+        | Const _          -> Const 0.0
+        | Var x when x = v -> Const 1.0
+        | Var _            -> Const 0.0
+        | Add(a, b)        -> Add(diff v a, diff v b)
+        | Sub(a, b)        -> Sub(diff v a, diff v b)
+        | Mul(a, b)        -> Add(Mul(diff v a, b), Mul(a, diff v b))
+        | Div(a, b)        -> Div(Sub(Mul(diff v a, b), Mul(a, diff v b)), Mul(b, b))
+        | Pow(a, b)        -> Mul(Pow(a, b), Add(Mul(diff v b, Log a), Mul(b, Div(diff v a, a))))
+        | Neg a            -> Neg(diff v a)
+        | Sin a            -> Mul(Cos a, diff v a)
+        | Cos a            -> Mul(Neg(Sin a), diff v a)
+        | Tan a            -> Div(diff v a, Mul(Cos a, Cos a))
+        | Exp a            -> Mul(Exp a, diff v a)
+        | Log a            -> Div(diff v a, a)
 
-type Expr with // Typeclass members: satisfies SRTP constraints used by konst and diff
-    static member Const (c: float)              = EConst c
-    static member Seed  (name: string)          = EVar name
-    static member Diff  (name: string, r: Expr) = Symbolic.diff name r
+// ------------------------------------------------------------------------------------------------
+// API implementations
+// ------------------------------------------------------------------------------------------------
 
-type Expr with // Basic arithmetic operators
-    static member ( + )  (a: Expr, b: Expr) = EAdd(a, b)
-    static member ( - )  (a: Expr, b: Expr) = ESub(a, b)
-    static member ( * )  (a: Expr, b: Expr) = EMul(a, b)
-    static member ( / )  (a: Expr, b: Expr) = EDiv(a, b)
-    static member ( ** ) (a: Expr, b: Expr) = EPow(a, b)
-    static member ( ~- ) (a: Expr)          = ENeg a
+// Forward-mode backend using dual numbers.
+// Seed: sets Deriv=1 to mark the active variable.
+// Diff: just reads .Deriv off the result.
+//
+// Symbolic backend using expression trees.
+// Seed: creates a Var node to represent the active variable.
+// Diff: applies symbolic differentiation rules to the result tree.
 
-type Expr with // Math functions – named Sin/Cos/... so F# built-ins dispatch here via SRTP
-    static member Sin (x: Expr) = ESin x
-    static member Cos (x: Expr) = ECos x
-    static member Tan (x: Expr) = ETan x
-    static member Exp (x: Expr) = EExp x
-    static member Log (x: Expr) = ELog x
+let dual =
+    { new IAutomaticDifferentiation<Dual, float, float> with
+        member _.Seed  x           = { Value = x; Deriv = 1.0 }
+        member _.Diff  (_, result) = result.Deriv
+        member _.Const c           = { Value = c; Deriv = 0.0 }
+        member _.Add ((x, y))      = x + y
+        member _.Sub ((x, y))      = x - y
+        member _.Mul ((x, y))      = x * y
+        member _.Div ((x, y))      = x / y
+        member _.Pow ((x, y))      = Dual.Pow(x, y)
+        member _.Neg x             = -x
+        member _.Sin x             = Dual.Sin x
+        member _.Cos x             = Dual.Cos x
+        member _.Tan x             = Dual.Tan x
+        member _.Exp x             = Dual.Exp x
+        member _.Log x             = Dual.Log x }
+
+let expr =
+    { new IAutomaticDifferentiation<Expr, string, Expr> with
+        member _.Seed  name           = Var name
+        member _.Diff  (name, result) = Symbolic.diff name result
+        member _.Const c              = Const c
+        member _.Add ((x, y))         = Add(x, y)
+        member _.Sub ((x, y))         = Sub(x, y)
+        member _.Mul ((x, y))         = Mul(x, y)
+        member _.Div ((x, y))         = Div(x, y)
+        member _.Pow ((x, y))         = Pow(x, y)
+        member _.Neg x                = Neg x
+        member _.Sin x                = Sin x
+        member _.Cos x                = Cos x
+        member _.Tan x                = Tan x
+        member _.Exp x                = Exp x
+        member _.Log x                = Log x }
 
 // ------------------------------------------------------------------------------------------------
 // Main
@@ -138,18 +168,15 @@ type Expr with // Math functions – named Sin/Cos/... so F# built-ins dispatch 
 
 let PI = System.Math.PI
 
-// f is generic: works for any type satisfying the SRTP constraints.
-// 'inline' is required so the compiler can resolve sin, *, konst at each specific call site.
-// 'konst' lifts the float (2π) into whichever type ^T is being used.
-let inline f x = sin (konst (2.0 * PI) * x)
+// Define the computation once using the backend interface.
+// The same 'f' works for both backends — the type parameter 'T is inferred at each call site.
+let f (b: IAutomaticDifferentiation<'T, 'U, 'D>) (x: 'T) =
+    b.Sin(b.Mul(b.Const(2.0 * PI), x))
 
-// Forward mode: ^T=Dual, ^U=float, ^D=float
-// Seed sets Deriv=1; the computation propagates it; Diff reads .Deriv off the result.
-let dNum : float = diff 1.0 (fun (x: Dual) -> f x)
+// Forward mode: numeric derivative at x = 1.0
+let dNum : float = diff dual 1.0 (f dual)
 printfn $"> f(x) = sin(2πx)"
 printfn $"> f'(1.0) [Dual]  = {dNum}"
 
-// Symbolic mode: ^T=Expr, ^U=string, ^D=Expr
-// Seed creates EVar "x"; the computation builds a tree; Diff applies symbolic rules.
-let dSym : Expr = diff "x" (fun (x: Expr) -> f x)
-printfn $"> f'(x)  [Expr]  = {dSym}"
+// Symbolic mode: derivative as an expression tree
+let dSym : Expr = diff expr "x" (f expr)
