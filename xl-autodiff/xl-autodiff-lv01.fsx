@@ -1,12 +1,3 @@
-// Automatic differentiation in F#
-// ===============================
-//
-// 2026-04-04
-// ----------
-// Progressive complexity, starting with forward mode based on dual numbers.
-// This does not scale well for functions with many inputs, but is a good
-// starting point for understanding the concepts.
-
 let PI = System.Math.PI
 
 type Dual = { Value : float; Deriv : float }
@@ -32,13 +23,13 @@ type Dual with // Basic arithmetic operations
         let d = (a.Deriv * b.Value - a.Value * b.Deriv) / (b.Value * b.Value)
         Dual.create v d
 
-    static member ( ~- ) (a: Dual) =
-        Dual.create (-a.Value) (-a.Deriv)
-
     static member ( ** ) (a: Dual, b: Dual) =
         let v = a.Value ** b.Value
         let d = v * (b.Deriv * log a.Value + b.Value * a.Deriv / a.Value)
         Dual.create v d
+
+    static member ( ~- ) (a: Dual) =
+        Dual.create (-a.Value) (-a.Deriv)
 
 type Dual with // Common math functions
     static member sin x =
@@ -58,17 +49,41 @@ type Dual with // Common math functions
     static member log x =
         Dual.create (log x.Value) (x.Deriv / x.Value)
 
+let inline grad (f: Dual[] -> Dual) (x: float[]) : float[] =
+    let inline gradJ i j v =
+        match i, j with
+        | _ when i = j -> Dual.create v 1.0
+        | _            -> Dual.create v 0.0
+
+    let inline gradI f x i =
+        x |> Array.mapi (fun j v -> gradJ i j v) |> fun xs -> (f xs).Deriv
+
+    Array.init x.Length (fun i -> gradI f x i)
+
 module Diff =
     let inline diff (f: Dual -> Dual) (x: float) : float =
-        let xDual = Dual.variable x
-        let yDual = f xDual
-        yDual.Deriv
+        Dual.variable x |> f |> fun y -> y.Deriv
 
     let inline valueAndDiff (f: Dual -> Dual) (x: float) : float * float =
-        let xDual = Dual.variable x
-        let yDual = f xDual
-        yDual.Value, yDual.Deriv
+        Dual.variable x |> f |> fun y -> y.Value, y.Deriv
 
-let f x = Dual.sin x
+    let inline grad (f: Dual[] -> Dual) (x: float[]) = grad f x
 
-let v, d = Diff.valueAndDiff f PI
+module Main =
+    let f x = Dual.sin (Dual.constant (2.0 * PI) * x)
+    let v, d = Diff.valueAndDiff f 1.0
+
+    printfn $"> Using `f(x) = sin(2πx)`"
+    printfn $"> f(1) = {v}, f'(1) = {d}"
+
+    let g (xs: Dual[]) =
+        let x = xs.[0]
+        let y = xs.[1]
+        x * y + Dual.sin x
+
+    let gradAt = Diff.grad g [| PI/2.0; 2.0 |]
+
+    printfn $"> Using `g(x, y) = xy + sin(x)`"
+    printfn $"> ∇g(π/2, 2) = ({gradAt.[0]:F2}, {gradAt.[1]:F2})"
+    printfn $">            = (∂g/∂x, ∂g/∂y)"
+    printfn $">            = (y + cos x, x)"

@@ -1,24 +1,3 @@
-// For finishing the AD:
-// let inline grad (f: Dual[] -> Dual) (x: float[]) : float[] =
-//     let n = x.Length
-//     Array.init n (fun i ->
-//         let xs =
-//             x
-//             |> Array.mapi (fun j v ->
-//                 if i = j then Dual.create v 1.0
-//                 else Dual.create v 0.0)
-//         (f xs).Deriv)
-//
-// let g (xs: Dual[]) =
-//     let x, y = xs.[0], xs.[1]
-//     x * y + Dual.sin x
-//
-// let gradAt = grad g [| 1.0; 2.0 |]
-// // ∂g/∂x = y + cos x, ∂g/∂y = x
-//
-// module Diff =
-//     let inline grad (f: Dual[] -> Dual) (x: float[]) = grad f x
-
 // For finishing the transient solver:
 type Tuple4<'T> = 'T * 'T * 'T * 'T
 
