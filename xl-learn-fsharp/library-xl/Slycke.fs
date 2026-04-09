@@ -60,7 +60,7 @@ module Slycke =
 
     type SlyckeDiffusivity = float -> float -> float
 
-    type SlyckeData =
+    type SlyckeModel =
         { CarbonInfDiffusivity: float
           NitrogenInfDiffusivity: float
           CarbonActivationEnergy: float
@@ -70,32 +70,18 @@ module Slycke =
           ActivationEnergyBase: float
           CoefPreExpFactor: float }
 
-        static member getDefaults () =
-            { CarbonInfDiffusivity = 4.85e-05
-              NitrogenInfDiffusivity = 9.10e-05
-              CarbonActivationEnergy = 155_000.0
-              NitrogenActivationEnergy = 168_600.0
-              CoefCarbon = 1.0
-              CoefNitrogen = 0.72
-              ActivationEnergyBase = 570_000.0
-              CoefPreExpFactor = 320.0 }
-
-    type SlyckeModel =
-        { Data: SlyckeData
-          Conditions: ISlyckeUserInit }
-
         static member private geometricExclusionFactor (xa: float) (xb: float) =
            (1.0 - xb) / (1.0 - 5.0 * (xa + xb))
 
         member private self.compositionModifier (xc: float) (xn: float) =
-            self.Data.CoefCarbon * xc + self.Data.CoefNitrogen * xn
+            self.CoefCarbon * xc + self.CoefNitrogen * xn
 
         member private self.preExponentialFactor (xc: float) (xn: float) =
-            let b = self.Data.CoefPreExpFactor * self.compositionModifier xc xn
+            let b = self.CoefPreExpFactor * self.compositionModifier xc xn
             exp (-b / Constants.gasConstant)
 
         member private self.activationEnergy (Ea: float) (xc: float) (xn: float) =
-            Ea - self.Data.ActivationEnergyBase * self.compositionModifier xc xn
+            Ea - self.ActivationEnergyBase * self.compositionModifier xc xn
 
         member _.massToMoleFraction (x: float array) : float array =
             let massToMole = getMassFractionToMolarFractionConverter ()
@@ -107,16 +93,23 @@ module Slycke =
 
         member self.carbonDiffusivity (xc: float) (xn: float) (t: float) =
             let a = SlyckeModel.geometricExclusionFactor xc xn * self.preExponentialFactor xc xn
-            let e = self.activationEnergy self.Data.CarbonActivationEnergy xc xn
-            self.Data.CarbonInfDiffusivity * Thermophysics.arrheniusFactor a e t
+            let e = self.activationEnergy self.CarbonActivationEnergy xc xn
+            self.CarbonInfDiffusivity * Thermophysics.arrheniusFactor a e t
 
         member self.nitrogenDiffusivity (xc: float) (xn: float) (t: float) =
             let a = SlyckeModel.geometricExclusionFactor xn xc * self.preExponentialFactor xc xn
-            let e = self.activationEnergy self.Data.NitrogenActivationEnergy xc xn
-            self.Data.NitrogenInfDiffusivity * Thermophysics.arrheniusFactor a e t
+            let e = self.activationEnergy self.NitrogenActivationEnergy xc xn
+            self.NitrogenInfDiffusivity * Thermophysics.arrheniusFactor a e t
 
-        static member create (conditions: ISlyckeUserInit) =
-            { Data = SlyckeData.getDefaults (); Conditions = conditions }
+        static member create () =
+            { CarbonInfDiffusivity = 4.85e-05
+              NitrogenInfDiffusivity = 9.10e-05
+              CarbonActivationEnergy = 155_000.0
+              NitrogenActivationEnergy = 168_600.0
+              CoefCarbon = 1.0
+              CoefNitrogen = 0.72
+              ActivationEnergyBase = 570_000.0
+              CoefPreExpFactor = 320.0 }
 
     type SlyckeManager =
         { Setup: ISlyckeUserInit
@@ -129,7 +122,7 @@ module Slycke =
             if  init.YcField.Length <> init.YnField.Length then
                 invalidArg "ynField" "Length of ynField must match length of ycField."
 
-            let model = SlyckeModel.create init
+            let model = SlyckeModel.create ()
 
             let xFun = fun yc yn -> model.massToMoleFraction [| yc; yn |]
             let xIni = Array.map2 xFun init.YcField init.YnField
@@ -180,8 +173,11 @@ module Slycke =
                 let le = delta[i + 1]
                 let lP = 0.5 * (lw + le)
 
-                let foW = FourierNumber (interp DNow.[i - 1] DNow.[i]) tau (sqrt (lw * lP))
-                let foE = FourierNumber (interp DNow.[i + 1] DNow.[i]) tau (sqrt (le * lP))
+                let delW = sqrt (lw * lP)
+                let delE = sqrt (le * lP)
+
+                let foW = FourierNumber (interp DNow.[i - 1] DNow.[i]) tau delW
+                let foE = FourierNumber (interp DNow.[i + 1] DNow.[i]) tau delE
 
                 field.Matrix.a.[i] <- -1.0 * foW
                 field.Matrix.b.[i] <- 1.0 + foW + foE
@@ -192,7 +188,8 @@ module Slycke =
             let n = field.Matrix.n - 1
             let lw = delta[n - 1]
             let lP = 2.0 * delta[n]
-            let foW = FourierNumber (interp DNow.[n - 1] DNow.[n]) tau (sqrt (lw * lP))
+            let delW = sqrt (lw * lP)
+            let foW = FourierNumber (interp DNow.[n - 1] DNow.[n]) tau delW
 
             field.Matrix.a.[n] <- -1.0 * foW
             field.Matrix.b.[n] <- 1.0 + foW

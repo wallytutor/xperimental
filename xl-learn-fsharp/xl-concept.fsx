@@ -78,7 +78,7 @@ type UserInit with
           hcInf             = 1.0e-05
           hnInf             = 1.0e-05
           temperature       = 1173.15
-          relaxation        = 1.0
+          relaxation        = 0.9
           maxNonlinIter     = 10
           relativeTolerance = 1.0e-05
           absoluteTolerance = 1.0e-09 }
@@ -99,6 +99,23 @@ type UserInit with
         let dt = Array.map2 (fun ti tj -> tj - ti) t[.. t.Length - 2] t[1 ..]
         t, dt
 
+let getReinitialization (init: UserInit) (manager: SlyckeManager) (tend: float) =
+    let xcFinal = manager.CarbonField.Concentration
+    let xnFinal = manager.NitrogenField.Concentration
+
+    let conv xc xn = manager.Model.moleToMassFraction [| xc; xn |]
+    let yFinal= Array.map2 conv xcFinal xnFinal
+
+    let t, dt = UserInit.timeSpace tend 1.0
+
+    { init with
+        ycField = Array.map (fun (y: float array) -> y.[0]) yFinal
+        ynField = Array.map (fun (y: float array) -> y.[1]) yFinal
+        hcInf = 0.0
+        hnInf = 0.0
+        timePoints = t
+        timeSteps = dt }
+
 let dumpResults (mngr: SlyckeManager, dumpPath: string) =
     let z = mngr.Setup.CellCenters
     let xcFinal = mngr.CarbonField.Concentration
@@ -106,19 +123,24 @@ let dumpResults (mngr: SlyckeManager, dumpPath: string) =
 
     let conv xc xn = mngr.Model.moleToMassFraction [| xc; xn |]
     let yFinal = Array.map2 conv xcFinal xnFinal
-    let numPoints = z.Length
+
 
     let dumpLine i =
-        let zi = z.[i]
+        let zi = 1000.0 * z.[i]
         let yci = yFinal.[i].[0]
         let yni = yFinal.[i].[1]
         $"{zi:E17} {yci:E17} {yni:E17}"
 
-    let finalStateLines = Array.init numPoints dumpLine
+    let finalStateLines = Array.init z.Length dumpLine
     File.WriteAllLines(dumpPath, finalStateLines)
 
-let init = UserInit.create ()
-let manager = SlyckeManager.runSimulation init
+
+let initStep1 = UserInit.create ()
+let manager1 = SlyckeManager.runSimulation initStep1
+
+// let initStep2 = getReinitialization initStep1 manager1 (4.0 * 3600.0)
+// let manager2 = SlyckeManager.runSimulation initStep2
+
 
 let outputDir = Path.Combine(__SOURCE_DIRECTORY__, "sandbox")
 Directory.CreateDirectory outputDir |> ignore
@@ -126,11 +148,11 @@ Directory.CreateDirectory outputDir |> ignore
 let finalStatePath = Path.Combine(outputDir, "solution.dat")
 let gnuplotPath = finalStatePath.Replace("\\", "/")
 
-dumpResults (manager, finalStatePath)
+dumpResults (manager1, finalStatePath)
 
 Gnuplot.GnuplotInteractive ()
 |>> "set title 'Final mass-fraction state'"
-|>> "set xlabel 'Depth (m)'"
+|>> "set xlabel 'Depth (mm)'"
 |>> "set ylabel 'Mass fraction (-)'"
 |>> "set grid"
 |>> "set key left top"
