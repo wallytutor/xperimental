@@ -59,22 +59,16 @@ type UserInit with
         // rtol, atol : relative and absolute tolerances of nonlinear solver.
         let numPoints     = 200
         let domainDepth   = 0.002
-        let timeEnd       = 7200.0
-        let timeStep      = 1.0
-        let ycIni         = 0.0023
-        let ynIni         = 0.0000
-
         let z, dz = UserInit.linearSpace domainDepth numPoints
-        let t, dt = UserInit.timeSpace timeEnd timeStep
 
         { cellCenters       = z
           spacing           = dz
-          timePoints        = t
-          timeSteps         = dt
-          ycField           = Array.init numPoints (fun _ -> ycIni)
-          ynField           = Array.init numPoints (fun _ -> ynIni)
-          ycInf             = 0.011
-          ynInf             = 0.005
+          timePoints        = [| 0.0; 7200.0|]
+          timeSteps         = [| 7200.0 |]
+          ycField           = Array.init numPoints (fun _ -> 0.0023)
+          ynField           = Array.init numPoints (fun _ -> 0.0000)
+          ycInf             = 0.0
+          ynInf             = 0.0
           hcInf             = 1.0e-05
           hnInf             = 1.0e-05
           temperature       = 1173.15
@@ -99,24 +93,55 @@ type UserInit with
         let dt = Array.map2 (fun ti tj -> tj - ti) t[.. t.Length - 2] t[1 ..]
         t, dt
 
-let getReinitialization (init: UserInit) (manager: SlyckeManager) (tend: float) =
+let getReinitialization (manager: SlyckeManager) =
     let xcFinal = manager.CarbonField.Concentration
     let xnFinal = manager.NitrogenField.Concentration
 
     let conv xc xn = manager.Model.moleToMassFraction [| xc; xn |]
     let yFinal= Array.map2 conv xcFinal xnFinal
 
-    let t, dt = UserInit.timeSpace tend 1.0
+    let ycField = Array.map (fun (y: float array) -> y.[0]) yFinal
+    let ynField = Array.map (fun (y: float array) -> y.[1]) yFinal
 
-    { init with
-        ycField = Array.map (fun (y: float array) -> y.[0]) yFinal
-        ynField = Array.map (fun (y: float array) -> y.[1]) yFinal
-        hcInf = 0.0
-        hnInf = 0.0
+    ycField, ynField
+
+let stepCarburizing () =
+    let t, dt = UserInit.timeSpace (2.0 * 3600.0) 1.0
+    { UserInit.create () with
         timePoints = t
-        timeSteps = dt }
+        timeSteps = dt
+        ycInf     = 0.011
+        ynInf     = 0.000 }
 
-let dumpResults (mngr: SlyckeManager, dumpPath: string) =
+let stepDiffusion (manager: SlyckeManager) =
+    let t, dt = UserInit.timeSpace (1.0 * 3600.0) 1.0
+    let ycField, ynField = getReinitialization manager
+
+    { UserInit.create () with
+        timePoints = t
+        timeSteps  = dt
+        ycField    = ycField
+        ynField    = ynField
+        ycInf      = 0.0
+        ynInf      = 0.0
+        hcInf      = 0.0e-05
+        hnInf      = 0.0e-05 }
+
+let stepNitriding (manager: SlyckeManager) =
+    let t, dt = UserInit.timeSpace (3.0 * 3600.0) 1.0
+    let ycField, ynField = getReinitialization manager
+
+    { UserInit.create () with
+        timePoints = t
+        timeSteps  = dt
+        ycField    = ycField
+        ynField    = ynField
+        ycInf      = 0.0
+        ynInf      = 0.005
+        hcInf      = 0.0e-05
+        hnInf      = 1.0e-05 }
+
+let dumpResults (mngr: SlyckeManager, dumpName: string) =
     let z = mngr.Setup.CellCenters
     let xcFinal = mngr.CarbonField.Concentration
     let xnFinal = mngr.NitrogenField.Concentration
@@ -124,38 +149,52 @@ let dumpResults (mngr: SlyckeManager, dumpPath: string) =
     let conv xc xn = mngr.Model.moleToMassFraction [| xc; xn |]
     let yFinal = Array.map2 conv xcFinal xnFinal
 
+    let outputDir = Path.Combine(__SOURCE_DIRECTORY__, "sandbox")
+    Directory.CreateDirectory outputDir |> ignore
+    let dumpPath = Path.Combine(outputDir, dumpName)
 
     let dumpLine i =
         let zi = 1000.0 * z.[i]
-        let yci = yFinal.[i].[0]
-        let yni = yFinal.[i].[1]
+        let yci = 100.0 * yFinal.[i].[0]
+        let yni = 100.0 * yFinal.[i].[1]
         $"{zi:E17} {yci:E17} {yni:E17}"
 
     let finalStateLines = Array.init z.Length dumpLine
     File.WriteAllLines(dumpPath, finalStateLines)
+    dumpPath.Replace("\\", "/")
 
 
-let initStep1 = UserInit.create ()
-let manager1 = SlyckeManager.runSimulation initStep1
+let manager1 =
+    let init = stepCarburizing ()
+    SlyckeManager.runSimulation init
 
-// let initStep2 = getReinitialization initStep1 manager1 (4.0 * 3600.0)
-// let manager2 = SlyckeManager.runSimulation initStep2
+let gnuplotPath1 = dumpResults (manager1, "carburizing.dat")
 
+let manager2 =
+    let init = stepDiffusion manager1
+    SlyckeManager.runSimulation init
 
-let outputDir = Path.Combine(__SOURCE_DIRECTORY__, "sandbox")
-Directory.CreateDirectory outputDir |> ignore
+let gnuplotPath2 = dumpResults (manager2, "diffusion.dat")
 
-let finalStatePath = Path.Combine(outputDir, "solution.dat")
-let gnuplotPath = finalStatePath.Replace("\\", "/")
+let manager3 =
+    let init = stepNitriding manager2
+    SlyckeManager.runSimulation init
 
-dumpResults (manager1, finalStatePath)
+let gnuplotPath3 = dumpResults (manager3, "nitriding.dat")
+
 
 Gnuplot.GnuplotInteractive ()
-|>> "set title 'Final mass-fraction state'"
+|>> "set title 'Final Composition Profiles'"
 |>> "set xlabel 'Depth (mm)'"
-|>> "set ylabel 'Mass fraction (-)'"
+|>> "set ylabel 'Composition (%wt)'"
+|>> "set linestyle 1 dt 3 lw 1 lc '#000000'"
+|>> "set linestyle 2 dt 2 lw 1 lc '#000000'"
+|>> "set linestyle 3 dt 1 lw 1 lc '#000000'"
+|>> "set linestyle 4 dt 1 lw 1 lc '#FF0000'"
 |>> "set grid"
-|>> "set key left top"
-|>> $"plot '{gnuplotPath}' \\"
-|>> "using 1:2 with lines lw 2 title 'yC',\\"
-|>> "'' using 1:3 with lines lw 2 title 'yN'"
+|>> "set key right top"
+|>> $"plot \\"
+|>> $"'{gnuplotPath1}' using 1:2 with lines linestyle 1 title 'C (carburizing)',\\"
+|>> $"'{gnuplotPath2}' using 1:2 with lines linestyle 2 title 'C (homogenizing)',\\"
+|>> $"'{gnuplotPath3}' using 1:2 with lines linestyle 3 title 'C (nitriding)',\\"
+|>> $"''               using 1:3 with lines linestyle 4 title 'N (nitriding)'"
