@@ -73,10 +73,10 @@ module PhDThesis =
               hcInf             = 1.0e-05
               hnInf             = 1.0e-05
               temperature       = 1173.15
-              relaxation        = 0.9
-              maxNonlinIter     = 10
-              relativeTolerance = 1.0e-05
-              absoluteTolerance = 1.0e-09 }
+              relaxation        = 0.75
+              maxNonlinIter     = 20
+              relativeTolerance = 1.0e-06
+              absoluteTolerance = 1.0e-10 }
 
         static member linearSpace (depth: float) (n: int) =
             let dz = depth / (float n)

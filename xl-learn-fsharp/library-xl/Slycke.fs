@@ -202,7 +202,7 @@ module Slycke =
           (cInf: float)
           (hInf: float)
           (tau: float)
-          (x: float array) : float * float =
+          (xOld: float array) : float * float * float array =
             let xNew = self.updateElement field cInf hInf tau
 
             let small = self.Setup.AbsoluteTolerance
@@ -210,12 +210,13 @@ module Slycke =
             let mutable relChange = 0.0
 
             for i = 0 to self.numPoints - 1 do
-                let changeInc = self.Setup.Relaxation * (xNew.[i] - x.[i])
+                let changeInc = self.Setup.Relaxation * (xNew.[i] - xOld.[i])
                 let changeAbs = abs changeInc
-                let changeRel = changeAbs / abs (x.[i] + small)
+                let changeRel = changeAbs / abs (xOld.[i] + small)
 
-                let xUpdated = x.[i] + changeInc
-                field.Concentration.[i] <- xUpdated
+                // XXX never update the main solution in the inner loop!!!
+                // field.Concentration.[i] <- xUpdated
+                xNew.[i] <- xOld.[i] + changeInc
 
                 if changeAbs > absChange then
                     absChange <- changeAbs
@@ -223,16 +224,16 @@ module Slycke =
                 if changeRel > relChange then
                     relChange <- changeRel
 
-            absChange, relChange
+            absChange, relChange, xNew
 
         member private self.innerLoop
           (Dc: SlyckeDiffusivity)
           (Dn: SlyckeDiffusivity)
+          (xcNow: float array)
+          (xnNow: float array)
           (xInf: float array)
           (hInf: float array)
-          (tau: float) : float * float =
-            let xcNow = self.CarbonField.Concentration
-            let xnNow = self.NitrogenField.Concentration
+          (tau: float) : float * float * float array * float array =
 
             let carbonTask =
                 Task.Run (fun () ->
@@ -252,9 +253,9 @@ module Slycke =
 
             Task.WaitAll [| carbonTask :> Task; nitrogenTask :> Task |]
 
-            let maxAbsC, maxRelC = carbonTask.Result
-            let maxAbsN, maxRelN = nitrogenTask.Result
-            max maxAbsC maxAbsN, max maxRelC maxRelN
+            let maxAbsC, maxRelC, xcNew = carbonTask.Result
+            let maxAbsN, maxRelN, xnNew = nitrogenTask.Result
+            max maxAbsC maxAbsN, max maxRelC maxRelN, xcNew, xnNew
 
         member self.outerLoop
           (t: float)
@@ -266,20 +267,35 @@ module Slycke =
             let xInf = self.Model.massToMoleFraction (self.Setup.YInf t)
             let hInf = self.Setup.HInf t
 
+
             let mutable converged = false
             let mutable iteration = 0
             let mutable absErr = 0.0
             let mutable relErr = 0.0
 
+            let xcNow = self.CarbonField.Concentration
+            let xnNow = self.NitrogenField.Concentration
+
+            let xcTmp = Array.copy xcNow
+            let xnTmp = Array.copy xnNow
+
             while not converged && iteration < self.Setup.MaxNonlinIter do
-                let residuals = self.innerLoop Dc Dn xInf hInf tau
-                absErr <- residuals |> fst
-                relErr <- residuals |> snd
+                let innerOutputs = self.innerLoop Dc Dn xcTmp xnTmp xInf hInf tau
+                let absErr, relErr, xcNew, xnNew = innerOutputs
+
+                for i = 0 to self.numPoints - 1 do
+                    xcTmp.[i] <- xcNew.[i]
+                    xnTmp.[i] <- xnNew.[i]
 
                 converged <- absErr < self.Setup.AbsoluteTolerance &&
                              relErr < self.Setup.RelativeTolerance
 
                 iteration <- iteration + 1
+                // converged <- true
+
+            for i = 0 to self.numPoints - 1 do
+                self.CarbonField.Concentration.[i]   <- xcTmp.[i]
+                self.NitrogenField.Concentration.[i] <- xnTmp.[i]
 
             iteration, absErr, relErr, converged
 
@@ -294,7 +310,7 @@ module Slycke =
                 let stepOutputs = mngr.outerLoop t timeSteps.[i]
                 let iteration, absErr, relErr, converged = stepOutputs
 
-                printf  $"Step {i + 1}/{timePoints.Length - 1} (t = {timePoints.[i + 1]:F1} s) .. "
+                printf  $"Step {i + 1:D5}/{timePoints.Length-1:D5} (t = {timePoints.[i + 1]:E3} s) .. "
                 printfn $"iters = {iteration:D2}, absErr = {absErr:E3}, relErr = {relErr:E3}"
 
             mngr
