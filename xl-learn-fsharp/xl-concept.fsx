@@ -154,33 +154,33 @@ module PhDThesis =
 
 // [<EntryPoint>]
 // let Main (args: string[]) : int =
-let main () =
-    let manager1 = SlyckeManager.runSimulation (PhDThesis.stepCarburizing ())
-    let manager2 = SlyckeManager.runSimulation (PhDThesis.stepDiffusion manager1)
-    let manager3 = SlyckeManager.runSimulation (PhDThesis.stepNitriding manager2)
+// let main () =
+let manager1 = SlyckeManager.runSimulation (PhDThesis.stepCarburizing ())
+let manager2 = SlyckeManager.runSimulation (PhDThesis.stepDiffusion manager1)
+let manager3 = SlyckeManager.runSimulation (PhDThesis.stepNitriding manager2)
 
-    let gnuplotPath1 = PhDThesis.dumpResults (manager1, "carburizing.dat")
-    let gnuplotPath2 = PhDThesis.dumpResults (manager2, "diffusion.dat")
-    let gnuplotPath3 = PhDThesis.dumpResults (manager3, "nitriding.dat")
+let gnuplotPath1 = PhDThesis.dumpResults (manager1, "carburizing.dat")
+let gnuplotPath2 = PhDThesis.dumpResults (manager2, "diffusion.dat")
+let gnuplotPath3 = PhDThesis.dumpResults (manager3, "nitriding.dat")
 
-    let result =
-        Gnuplot.GnuplotInteractive ()
-        |>> "set title 'Final Composition Profiles'"
-        |>> "set xlabel 'Depth (mm)'"
-        |>> "set ylabel 'Composition (%wt)'"
-        |>> "set linestyle 1 dt 3 lw 1 lc '#000000'"
-        |>> "set linestyle 2 dt 2 lw 1 lc '#000000'"
-        |>> "set linestyle 3 dt 1 lw 1 lc '#000000'"
-        |>> "set linestyle 4 dt 1 lw 1 lc '#FF0000'"
-        |>> "set grid"
-        |>> "set key right top"
-        |>> $"plot \\"
-        |>> $"'{gnuplotPath1}' using 1:2 with lines linestyle 1 title 'C (carburizing)',\\"
-        |>> $"'{gnuplotPath2}' using 1:2 with lines linestyle 2 title 'C (homogenizing)',\\"
-        |>> $"'{gnuplotPath3}' using 1:2 with lines linestyle 3 title 'C (nitriding)',\\"
-        |>> $"''               using 1:3 with lines linestyle 4 title 'N (nitriding)'"
-        |> ignore
+let result =
+    Gnuplot.GnuplotInteractive ()
+    |>> "set title 'Final Composition Profiles'"
+    |>> "set xlabel 'Depth (mm)'"
+    |>> "set ylabel 'Composition (%wt)'"
+    |>> "set linestyle 1 dt 3 lw 1 lc '#000000'"
+    |>> "set linestyle 2 dt 2 lw 1 lc '#000000'"
+    |>> "set linestyle 3 dt 1 lw 1 lc '#000000'"
+    |>> "set linestyle 4 dt 1 lw 1 lc '#FF0000'"
+    |>> "set grid"
+    |>> "set key right top"
+    |>> $"plot \\"
+    |>> $"'{gnuplotPath1}' using 1:2 with lines linestyle 1 title 'C (carburizing)',\\"
+    |>> $"'{gnuplotPath2}' using 1:2 with lines linestyle 2 title 'C (homogenizing)',\\"
+    |>> $"'{gnuplotPath3}' using 1:2 with lines linestyle 3 title 'C (nitriding)',\\"
+    |>> $"''               using 1:3 with lines linestyle 4 title 'N (nitriding)'"
+    |> ignore
 
-    0
+    // 0
 
-main ()
+// main ()

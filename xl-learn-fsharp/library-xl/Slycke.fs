@@ -126,7 +126,10 @@ module Slycke =
           relativeTolerance: float
           externalPotential: float -> float array
           externalCoefficients: float -> float array
-          externalTemperature: float -> float }
+          externalTemperature: float -> float
+          moleToMassConverter: float array -> float array -> float array * float array
+          ycResults: float array array
+          ynResults: float array array }
 
         static member create (init: ISlyckeUserInit) =
             if  init.YcField.Length <> init.YnField.Length then
@@ -140,6 +143,13 @@ module Slycke =
             let nNow = xIni |> Array.map (fun xi -> xi.[1])
 
             let potential t = model.massToMoleFraction (init.YInf t)
+
+            let mole2mass = getMolarFractionToMassFractionConverter ()
+            let moleToMassConverter xcArr xnArr =
+                let oneConv xc xn =
+                    let y = mole2mass [| xc; xn |]
+                    y.[0], y.[1]
+                Array.map2 oneConv xcArr xnArr |> Array.unzip
 
             { model = model
               carbonField = DiffusionField1D.fromConcentration cNow
@@ -155,7 +165,10 @@ module Slycke =
               relativeTolerance = init.RelativeTolerance
               externalPotential = potential
               externalCoefficients = init.HInf
-              externalTemperature = init.Temperature }
+              externalTemperature = init.Temperature
+              moleToMassConverter = moleToMassConverter
+              ycResults = Array.zeroCreate<float array> init.TimePoints.Length
+              ynResults = Array.zeroCreate<float array> init.TimePoints.Length }
 
         member private self.updateElement
           (field: DiffusionField1D)
@@ -321,29 +334,38 @@ module Slycke =
         member self.getReinitialization () : float array * float array =
             let xcFinal = self.carbonField.Concentration
             let xnFinal = self.nitrogenField.Concentration
+            self.moleToMassConverter xcFinal xnFinal
 
-            let conv xc xn = self.model.moleToMassFraction [| xc; xn |]
-            let yFinal= Array.map2 conv xcFinal xnFinal
+        member private self.storeState(idx: int) =
+            let yc, yn = self.getReinitialization ()
+            self.ycResults.[idx] <- yc
+            self.ynResults.[idx] <- yn
 
-            let ycField = Array.map (fun (y: float array) -> y.[0]) yFinal
-            let ynField = Array.map (fun (y: float array) -> y.[1]) yFinal
+        member self.getStep (idx: int) =
+            let numSteps = self.timePoints.Length
 
-            ycField, ynField
+            if idx < 0 || idx >= numSteps-1 then
+                invalidArg "idx" $"Out-of-bounds index {idx} for {numSteps} time points."
+
+            {| z = self.cellCenters; yc = self.ycResults.[idx]; yn = self.ynResults.[idx] |}
 
         static member runSimulation (init: ISlyckeUserInit) : SlyckeManager=
             let mngr = SlyckeManager.create init
             let timePoints = mngr.timePoints
             let timeSteps = mngr.timeSteps
 
-            for i in 0 .. timePoints.Length - 2 do
-                let t = timePoints.[i]
-                let stepOutputs = mngr.outerLoop t timeSteps.[i]
+            mngr.storeState (0)
+
+            for i in 1 .. timePoints.Length - 1 do
+                let t = timePoints.[i-1]
+                let stepOutputs = mngr.outerLoop t timeSteps.[i-1]
                 let iteration, absErr, relErr, converged = stepOutputs
 
                 if not converged then
                      printfn $">> Warning: Nonlinear solver did not converge at time {t:E3}"
 
-                printf  $"Step {i + 1:D5}/{timePoints.Length-1:D5} (t = {timePoints.[i + 1]:E3} s) .. "
+                printf  $"Step {i:D5}/{timePoints.Length-1:D5} (t = {timePoints.[i]:E3} s) .. "
                 printfn $"iters = {iteration:D2}, absErr = {absErr:E3}, relErr = {relErr:E3}"
+                mngr.storeState (i)
 
             mngr
