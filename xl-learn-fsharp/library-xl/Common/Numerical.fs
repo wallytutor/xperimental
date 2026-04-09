@@ -1,6 +1,7 @@
 namespace LibraryXl.Common
 
-module Numerical =
+
+module Tridiagonal =
     let tdma (a: float array) (b: float array) (c: float array) (d: float array) : float array =
         let n = Array.length d
         let cPrime = Array.zeroCreate n
@@ -21,6 +22,23 @@ module Numerical =
             x.[i] <- dPrime.[i] - cPrime.[i] * x.[i + 1]
 
         x
+
+    type MatrixProblem =
+        { a: float array
+          b: float array
+          c: float array
+          d: float array
+          n: int }
+
+        static member create (n: int) =
+            { a = Array.zeroCreate n
+              b = Array.zeroCreate n
+              c = Array.zeroCreate n
+              d = Array.zeroCreate n
+              n = n }
+
+        member self.solve () =
+            tdma self.a self.b self.c self.d
 
     /// Verify TDMA by solving the 1D discrete Poisson equation
     /// -u'' = 1, u(0) = u(1) = 0  on n interior nodes.
@@ -49,6 +67,8 @@ module Numerical =
         let tdmaStatus = if tdmaPassed then "PASSED" else "FAILED"
         printfn $"TDMA test (quadratic) .. {tdmaStatus}"
 
+
+module Numerical =
     let pairwiseHarmonic (x: float) (y: float) : float =
         2.0 * x * y / (x + y)
 

@@ -13,8 +13,7 @@
     <Compile Include="Common/Numerical.fs" />
     <Compile Include="Common/Plotting.fs" />
     <Compile Include="Common/Thermophysics.fs" />
-    <Compile Include="Slycke/Data.fs" />
-    <Compile Include="Slycke/Models.fs" />
+    <Compile Include="Slycke.fs" />
   </ItemGroup>
 
   <ItemGroup>

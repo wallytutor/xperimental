@@ -257,21 +257,3 @@ printfn $"yC surface/depth . {ycResults.[nTimeSteps].[0]:F6} / {ycResults.[nTime
 printfn $"yN surface/depth . {ynResults.[nTimeSteps].[0]:F6} / {ynResults.[nTimeSteps].[last]:F6}"
 
 // Save final profiles for post-processing and plotting.
-let outputDir = Path.Combine(__SOURCE_DIRECTORY__, "sandbox")
-Directory.CreateDirectory outputDir |> ignore
-
-let finalStatePath = Path.Combine(outputDir, "final-state.dat")
-let finalStateLines =
-    Array.init num_points (fun i -> $"{z.[i]:G17} {ycResults.[nTimeSteps].[i]:G17} {ynResults.[nTimeSteps].[i]:G17}")
-
-File.WriteAllLines(finalStatePath, finalStateLines)
-
-let gnuplotPath = finalStatePath.Replace("\\", "/")
-
-Gnuplot.GnuplotInteractive ()
-|>> "set title 'Final mass-fraction state'"
-|>> "set xlabel 'Depth (m)'"
-|>> "set ylabel 'Mass fraction (-)'"
-|>> "set grid"
-|>> "set key left top"
-|>> $"plot '{gnuplotPath}' using 1:2 with lines lw 2 title 'yC', '' using 1:3 with lines lw 2 title 'yN'"

@@ -5,72 +5,135 @@
 #load "library-xl/Common/Numerical.fs"
 #load "library-xl/Common/Plotting.fs"
 #load "library-xl/Common/Thermophysics.fs"
-#load "library-xl/Slycke/Data.fs"
-#load "library-xl/Slycke/Models.fs"
+#load "library-xl/Slycke.fs"
 open LibraryXl.Common
 open LibraryXl.Slycke
 open System.IO
-open System.Threading.Tasks
 
-module Parameters =
-    // Mass transfer coefficients:
-    let hc_inf = 1.0e-05
-    let hn_inf = 1.0e-05
+open Slycke
 
-    // External concentration for BCs:
-    let yc_inf = 0.011
-    let yn_inf = 0.005
+type UserInit =
+    { cellCenters: float array
+      spacing: float array
+      timePoints: float array
+      timeSteps: float array
+      ycField: float array
+      ynField: float array
+      ycInf: float
+      ynInf: float
+      hcInf: float
+      hnInf: float
+      temperature: float
+      relaxation: float
+      maxNonlinIter: int
+      relativeTolerance: float
+      absoluteTolerance: float }
 
-    // Initial conditions:
-    let yc_ini = 0.0023
-    let yn_ini = 0.0000
+    interface ISlyckeUserInit with
+        member self.Relaxation = self.relaxation
+        member self.MaxNonlinIter = self.maxNonlinIter
+        member self.RelativeTolerance = self.relativeTolerance
+        member self.AbsoluteTolerance = self.absoluteTolerance
+        member self.CellCenters = self.cellCenters
+        member self.Spacing = self.spacing
+        member self.TimePoints = self.timePoints
+        member self.TimeSteps = self.timeSteps
+        member self.YcField = self.ycField
+        member self.YnField = self.ynField
+        member self.YInf (t: float) = [| self.ycInf; self.ynInf |]
+        member self.HInf (t: float) = [| self.hcInf; self.hnInf |]
+        member self.Temperature (t: float) = self.temperature
 
-    // Temperature in K (operation conditions):
-    let temperature = 1173.0
+type UserInit with
+    static member create () =
+        // temperature : process temperature in K.
+        // ycIni, ynIni : initial mass fractions of carbon and nitrogen.
+        // ycInf, ynInf : mass fractions of carbon and nitrogen in the environment.
+        // hcInf, hnInf : mass transfer coefficients for external BCs.
+        // numPoints : number of spatial discretization points.
+        // domainDepth : depth of the spatial domain in m.
+        // timeStep : time step for time discretization in s.
+        // timeEnd : end time for the simulation in s.
+        // relaxation : relaxation factor for iterative solver (0 < relaxation <= 1).
+        // maxNonlinIter : maximum number of nonlinear iterations per time step.
+        // rtol, atol : relative and absolute tolerances of nonlinear solver.
+        let numPoints     = 200
+        let domainDepth   = 0.002
+        let timeEnd       = 7200.0
+        let timeStep      = 1.0
+        let ycIni         = 0.0023
+        let ynIni         = 0.0000
 
-    // Space discretization:
-    let num_points = 200
-    let domain_depth = 0.002
+        let z, dz = UserInit.linearSpace domainDepth numPoints
+        let t, dt = UserInit.timeSpace timeEnd timeStep
 
-    // Time step for transient simulations:
-    let tau = 1.0
+        { cellCenters       = z
+          spacing           = dz
+          timePoints        = t
+          timeSteps         = dt
+          ycField           = Array.init numPoints (fun _ -> ycIni)
+          ynField           = Array.init numPoints (fun _ -> ynIni)
+          ycInf             = 0.011
+          ynInf             = 0.005
+          hcInf             = 1.0e-05
+          hnInf             = 1.0e-05
+          temperature       = 1173.15
+          relaxation        = 1.0
+          maxNonlinIter     = 10
+          relativeTolerance = 1.0e-05
+          absoluteTolerance = 1.0e-09 }
 
-    // Relaxation factor for iterative solvers:
-    let relaxation_factor = 0.5
+    static member linearSpace (depth: float) (n: int) =
+        let dz = depth / (float n)
+        let z0 = dz / 2.0
+        let z1 = depth - z0
+        let z = Numerical.arangeInclusive z0 z1 dz
 
-    // maximum number of iterations:
-    let max_nonlin_iter = 20
+        let dz1 = depth - z[n - 1]
+        let mid = Array.map2 (fun x1 x2 -> x2 - x1) z[.. z.Length - 2] z[1 ..]
+        let dz = Array.append [| z0 |] (Array.append mid [| dz1 |])
+        z, dz
 
-    // Convergence criteria for fixed-point iterations:
-    let rtol = 1.0e-06
-    let atol = 1.0e-10
+    static member timeSpace (tend: float) (tstep: float) =
+        let t = Numerical.arangeInclusive 0.0 tend tstep
+        let dt = Array.map2 (fun ti tj -> tj - ti) t[.. t.Length - 2] t[1 ..]
+        t, dt
 
+let dumpResults (mngr: SlyckeManager, dumpPath: string) =
+    let z = mngr.Setup.CellCenters
+    let xcFinal = mngr.CarbonField.Concentration
+    let xnFinal = mngr.NitrogenField.Concentration
 
-let model = Models.getModel ()
+    let conv xc xn = mngr.Model.moleToMassFraction [| xc; xn |]
+    let yFinal = Array.map2 conv xcFinal xnFinal
+    let numPoints = z.Length
 
-let mass2Mole = Models.getMassFractionToMolarFractionConverter ()
-let mole2Mass = Models.getMolarFractionToMassFractionConverter ()
+    let dumpLine i =
+        let zi = z.[i]
+        let yci = yFinal.[i].[0]
+        let yni = yFinal.[i].[1]
+        $"{zi:E17} {yci:E17} {yni:E17}"
 
-let x = mass2Mole [| Parameters.yc_ini; Parameters.yn_ini |]
-let y = mole2Mass [| x.[0]; x.[1] |]
+    let finalStateLines = Array.init numPoints dumpLine
+    File.WriteAllLines(dumpPath, finalStateLines)
 
-let xc = x.[0]
-let xn = x.[1]
+let init = UserInit.create ()
+let manager = SlyckeManager.runSimulation init
 
-// Convert external BCs from mass fractions to mole fractions for transport equations.
-let xInf = mass2Mole [| Parameters.yc_inf; Parameters.yn_inf |]
-let xc_inf = xInf.[0]
-let xn_inf = xInf.[1]
+let outputDir = Path.Combine(__SOURCE_DIRECTORY__, "sandbox")
+Directory.CreateDirectory outputDir |> ignore
 
-let carbonDiff = model.carbonDiffusivity xc xn Parameters.temperature
-let nitrogenDiff = model.nitrogenDiffusivity xc xn Parameters.temperature
+let finalStatePath = Path.Combine(outputDir, "solution.dat")
+let gnuplotPath = finalStatePath.Replace("\\", "/")
 
-printfn $"Mass fractions ........ C = {y.[0]:F4}, N = {y.[1]:F4}"
-printfn $"Mole fractions ........ C = {x.[0]:F4}, N = {x.[1]:F4}"
-printfn $"Carbon diffusivity .... {carbonDiff:E} m²/s"
-printfn $"Nitrogen diffusivity .. {nitrogenDiff:E} m²/s"
+dumpResults (manager, finalStatePath)
 
-let z = Numerical.linearSpace 0.0 Parameters.domain_depth Parameters.num_points
-let t = Numerical.arangeInclusive 0.0 7200.0 Parameters.tau
-let nTimeSteps = Array.length t - 1
-let dt = Array.map2 (fun ti tj -> tj - ti) t[.. nTimeSteps - 1] t[1 ..]
+Gnuplot.GnuplotInteractive ()
+|>> "set title 'Final mass-fraction state'"
+|>> "set xlabel 'Depth (m)'"
+|>> "set ylabel 'Mass fraction (-)'"
+|>> "set grid"
+|>> "set key left top"
+|>> $"plot '{gnuplotPath}' \\"
+|>> "using 1:2 with lines lw 2 title 'yC',\\"
+|>> "'' using 1:3 with lines lw 2 title 'yN'"
