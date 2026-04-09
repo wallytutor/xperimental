@@ -6,24 +6,24 @@ open LibraryXl.Common
 module Slycke =
     let private elements = ["C"; "N"; "Fe"]
 
-    let getMassFractionToMolarFractionConverter () =
+    let private getMassFractionToMolarFractionConverter () =
         let massToMole = Mixtures.makeMassFractionToMoleFractionConverter elements
         fun (y: float array) ->
             match y with
             | [| yc; yn |] -> massToMole [| yc; yn; 1.0 - yc - yn |]
             | _ -> invalidArg "y" "Expected [| yC; yN |] mass fractions."
 
-    let getMolarFractionToMassFractionConverter () =
+    let private getMolarFractionToMassFractionConverter () =
         let moleToMass = Mixtures.makeMoleFractionToMassFractionConverter elements
         fun (x: float array) ->
             match x with
             | [| xc; xn |] -> moleToMass [| xc; xn; 1.0 - xc - xn |]
             | _ -> invalidArg "x" "Expected [| xC; xN |] mole fractions."
 
-    let FourierNumber (D: float) (tau: float) (L: float) : float =
+    let private FourierNumber (D: float) (tau: float) (L: float) : float =
         D * tau / (L * L)
 
-    let SherwoodNumber (h: float) (L: float) (D: float) : float =
+    let private SherwoodNumber (h: float) (L: float) (D: float) : float =
         h * L / D
 
     type DiffusionField1D =
@@ -112,11 +112,21 @@ module Slycke =
               CoefPreExpFactor = 320.0 }
 
     type SlyckeManager =
-        { Setup: ISlyckeUserInit
-          Model: SlyckeModel
-          CarbonField: DiffusionField1D
-          NitrogenField: DiffusionField1D
-          numPoints: int }
+        { model: SlyckeModel
+          carbonField: DiffusionField1D
+          nitrogenField: DiffusionField1D
+          numPoints: int
+          cellCenters: float array
+          gridSpacing: float array
+          timePoints: float array
+          timeSteps: float array
+          maxNonlinIter: int
+          relaxationFactor: float
+          absoluteTolerance: float
+          relativeTolerance: float
+          externalPotential: float -> float array
+          externalCoefficients: float -> float array
+          externalTemperature: float -> float }
 
         static member create (init: ISlyckeUserInit) =
             if  init.YcField.Length <> init.YnField.Length then
@@ -129,11 +139,23 @@ module Slycke =
             let cNow = xIni |> Array.map (fun xi -> xi.[0])
             let nNow = xIni |> Array.map (fun xi -> xi.[1])
 
-            { Setup = init
-              Model = model
-              CarbonField = DiffusionField1D.fromConcentration cNow
-              NitrogenField = DiffusionField1D.fromConcentration nNow
-              numPoints = xIni.Length }
+            let potential t = model.massToMoleFraction (init.YInf t)
+
+            { model = model
+              carbonField = DiffusionField1D.fromConcentration cNow
+              nitrogenField = DiffusionField1D.fromConcentration nNow
+              numPoints = xIni.Length
+              cellCenters = init.CellCenters
+              gridSpacing = init.Spacing
+              timePoints = init.TimePoints
+              timeSteps = init.TimeSteps
+              maxNonlinIter = init.MaxNonlinIter
+              relaxationFactor = init.Relaxation
+              absoluteTolerance = init.AbsoluteTolerance
+              relativeTolerance = init.RelativeTolerance
+              externalPotential = potential
+              externalCoefficients = init.HInf
+              externalTemperature = init.Temperature }
 
         member private self.updateElement
           (field: DiffusionField1D)
@@ -142,7 +164,7 @@ module Slycke =
           (tau: float) : float array =
             // Aliases for better readability.
             let interp = Numerical.pairwiseHarmonic
-            let delta = self.Setup.Spacing
+            let delta = self.gridSpacing
             let cNow = field.Concentration
             let DNow = field.Diffusivity
 
@@ -205,12 +227,12 @@ module Slycke =
           (xOld: float array) : float * float * float array =
             let xNew = self.updateElement field cInf hInf tau
 
-            let small = self.Setup.AbsoluteTolerance
+            let small = self.absoluteTolerance
             let mutable absChange = 0.0
             let mutable relChange = 0.0
 
             for i = 0 to self.numPoints - 1 do
-                let changeInc = self.Setup.Relaxation * (xNew.[i] - xOld.[i])
+                let changeInc = self.relaxationFactor * (xNew.[i] - xOld.[i])
                 let changeAbs = abs changeInc
                 let changeRel = changeAbs / abs (xOld.[i] + small)
 
@@ -238,17 +260,17 @@ module Slycke =
             let carbonTask =
                 Task.Run (fun () ->
                     for i = 0 to self.numPoints - 1 do
-                        self.CarbonField.Diffusivity.[i] <- Dc xcNow.[i] xnNow.[i]
+                        self.carbonField.Diffusivity.[i] <- Dc xcNow.[i] xnNow.[i]
 
-                    self.updateField self.CarbonField xInf.[0] hInf.[0] tau xcNow
+                    self.updateField self.carbonField xInf.[0] hInf.[0] tau xcNow
                 )
 
             let nitrogenTask =
                 Task.Run (fun () ->
                     for i = 0 to self.numPoints - 1 do
-                        self.NitrogenField.Diffusivity.[i] <- Dn xcNow.[i] xnNow.[i]
+                        self.nitrogenField.Diffusivity.[i] <- Dn xcNow.[i] xnNow.[i]
 
-                    self.updateField self.NitrogenField xInf.[1] hInf.[1] tau xnNow
+                    self.updateField self.nitrogenField xInf.[1] hInf.[1] tau xnNow
                 )
 
             Task.WaitAll [| carbonTask :> Task; nitrogenTask :> Task |]
@@ -260,22 +282,22 @@ module Slycke =
         member self.outerLoop
           (t: float)
           (tau: float) : int * float * float * bool =
-            let temp = self.Setup.Temperature t
-            let Dc xc xn = self.Model.carbonDiffusivity   xc xn temp
-            let Dn xc xn = self.Model.nitrogenDiffusivity xc xn temp
+            let temp = self.externalTemperature t
+            let Dc xc xn = self.model.carbonDiffusivity   xc xn temp
+            let Dn xc xn = self.model.nitrogenDiffusivity xc xn temp
 
-            let xInf = self.Model.massToMoleFraction (self.Setup.YInf t)
-            let hInf = self.Setup.HInf t
+            let xInf = self.externalPotential t
+            let hInf = self.externalCoefficients t
 
             let mutable converged = false
             let mutable iteration = 0
             let mutable absErr = 0.0
             let mutable relErr = 0.0
 
-            let xcTmp = Array.copy self.CarbonField.Concentration
-            let xnTmp = Array.copy self.NitrogenField.Concentration
+            let xcTmp = Array.copy self.carbonField.Concentration
+            let xnTmp = Array.copy self.nitrogenField.Concentration
 
-            while not converged && iteration < self.Setup.MaxNonlinIter do
+            while not converged && iteration < self.maxNonlinIter do
                 let innerOutputs = self.innerLoop Dc Dn xcTmp xnTmp xInf hInf tau
                 let absNew, relNew, xcNew, xnNew = innerOutputs
 
@@ -286,26 +308,40 @@ module Slycke =
                     xcTmp.[i] <- xcNew.[i]
                     xnTmp.[i] <- xnNew.[i]
 
-                converged <- absErr < self.Setup.AbsoluteTolerance &&
-                             relErr < self.Setup.RelativeTolerance
+                converged <- absErr < self.absoluteTolerance &&
+                             relErr < self.relativeTolerance
                 iteration <- iteration + 1
 
             for i = 0 to self.numPoints - 1 do
-                self.CarbonField.Concentration.[i]   <- xcTmp.[i]
-                self.NitrogenField.Concentration.[i] <- xnTmp.[i]
+                self.carbonField.Concentration.[i]   <- xcTmp.[i]
+                self.nitrogenField.Concentration.[i] <- xnTmp.[i]
 
             iteration, absErr, relErr, converged
 
+        member self.getReinitialization () : float array * float array =
+            let xcFinal = self.carbonField.Concentration
+            let xnFinal = self.nitrogenField.Concentration
+
+            let conv xc xn = self.model.moleToMassFraction [| xc; xn |]
+            let yFinal= Array.map2 conv xcFinal xnFinal
+
+            let ycField = Array.map (fun (y: float array) -> y.[0]) yFinal
+            let ynField = Array.map (fun (y: float array) -> y.[1]) yFinal
+
+            ycField, ynField
+
         static member runSimulation (init: ISlyckeUserInit) : SlyckeManager=
             let mngr = SlyckeManager.create init
-
-            let timePoints = mngr.Setup.TimePoints
-            let timeSteps = mngr.Setup.TimeSteps
+            let timePoints = mngr.timePoints
+            let timeSteps = mngr.timeSteps
 
             for i in 0 .. timePoints.Length - 2 do
                 let t = timePoints.[i]
                 let stepOutputs = mngr.outerLoop t timeSteps.[i]
                 let iteration, absErr, relErr, converged = stepOutputs
+
+                if not converged then
+                     printfn $">> Warning: Nonlinear solver did not converge at time {t:E3}"
 
                 printf  $"Step {i + 1:D5}/{timePoints.Length-1:D5} (t = {timePoints.[i + 1]:E3} s) .. "
                 printfn $"iters = {iteration:D2}, absErr = {absErr:E3}, relErr = {relErr:E3}"

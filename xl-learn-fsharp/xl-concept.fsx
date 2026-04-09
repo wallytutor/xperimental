@@ -58,7 +58,7 @@ module PhDThesis =
             // relaxation : relaxation factor for iterative solver (0 < relaxation <= 1).
             // maxNonlinIter : maximum number of nonlinear iterations per time step.
             // rtol, atol : relative and absolute tolerances of nonlinear solver.
-            let numPoints     = 200
+            let numPoints     = 100
             let domainDepth   = 0.002
             let z, dz = UserInit.linearSpace domainDepth numPoints
 
@@ -76,7 +76,7 @@ module PhDThesis =
               relaxation        = 0.75
               maxNonlinIter     = 20
               relativeTolerance = 1.0e-06
-              absoluteTolerance = 1.0e-10 }
+              absoluteTolerance = 1.0e-15 }
 
         static member linearSpace (depth: float) (n: int) =
             let dz = depth / (float n)
@@ -94,20 +94,8 @@ module PhDThesis =
             let dt = Array.map2 (fun ti tj -> tj - ti) t[.. t.Length - 2] t[1 ..]
             t, dt
 
-    let getReinitialization (manager: SlyckeManager) =
-        let xcFinal = manager.CarbonField.Concentration
-        let xnFinal = manager.NitrogenField.Concentration
-
-        let conv xc xn = manager.Model.moleToMassFraction [| xc; xn |]
-        let yFinal= Array.map2 conv xcFinal xnFinal
-
-        let ycField = Array.map (fun (y: float array) -> y.[0]) yFinal
-        let ynField = Array.map (fun (y: float array) -> y.[1]) yFinal
-
-        ycField, ynField
-
     let stepCarburizing () =
-        let t, dt = UserInit.timeSpace (2.0 * 3600.0) 1.0
+        let t, dt = UserInit.timeSpace (2.0 * 3600.0) 1.0e-00
         { UserInit.create () with
             timePoints = t
             timeSteps = dt
@@ -115,8 +103,8 @@ module PhDThesis =
             ynInf     = 0.000 }
 
     let stepDiffusion (manager: SlyckeManager) =
-        let t, dt = UserInit.timeSpace (1.0 * 3600.0) 1.0
-        let ycField, ynField = getReinitialization manager
+        let t, dt = UserInit.timeSpace (1.0 * 3600.0) 1.0e-00
+        let ycField, ynField = manager.getReinitialization ()
 
         { UserInit.create () with
             timePoints = t
@@ -129,8 +117,8 @@ module PhDThesis =
             hnInf      = 0.0e-05 }
 
     let stepNitriding (manager: SlyckeManager) =
-        let t, dt = UserInit.timeSpace (3.0 * 3600.0) 1.0
-        let ycField, ynField = getReinitialization manager
+        let t, dt = UserInit.timeSpace (3.0 * 3600.0) 1.0e-00
+        let ycField, ynField = manager.getReinitialization ()
 
         { UserInit.create () with
             timePoints = t
@@ -143,11 +131,11 @@ module PhDThesis =
             hnInf      = 1.0e-05 }
 
     let dumpResults (mngr: SlyckeManager, dumpName: string) =
-        let z = mngr.Setup.CellCenters
-        let xcFinal = mngr.CarbonField.Concentration
-        let xnFinal = mngr.NitrogenField.Concentration
+        let z = mngr.cellCenters
+        let xcFinal = mngr.carbonField.Concentration
+        let xnFinal = mngr.nitrogenField.Concentration
 
-        let conv xc xn = mngr.Model.moleToMassFraction [| xc; xn |]
+        let conv xc xn = mngr.model.moleToMassFraction [| xc; xn |]
         let yFinal = Array.map2 conv xcFinal xnFinal
 
         let outputDir = Path.Combine(__SOURCE_DIRECTORY__, "sandbox")
@@ -164,7 +152,9 @@ module PhDThesis =
         File.WriteAllLines(dumpPath, finalStateLines)
         dumpPath.Replace("\\", "/")
 
-module Main =
+// [<EntryPoint>]
+// let Main (args: string[]) : int =
+let main () =
     let manager1 = SlyckeManager.runSimulation (PhDThesis.stepCarburizing ())
     let manager2 = SlyckeManager.runSimulation (PhDThesis.stepDiffusion manager1)
     let manager3 = SlyckeManager.runSimulation (PhDThesis.stepNitriding manager2)
@@ -173,18 +163,24 @@ module Main =
     let gnuplotPath2 = PhDThesis.dumpResults (manager2, "diffusion.dat")
     let gnuplotPath3 = PhDThesis.dumpResults (manager3, "nitriding.dat")
 
-    Gnuplot.GnuplotInteractive ()
-    |>> "set title 'Final Composition Profiles'"
-    |>> "set xlabel 'Depth (mm)'"
-    |>> "set ylabel 'Composition (%wt)'"
-    |>> "set linestyle 1 dt 3 lw 1 lc '#000000'"
-    |>> "set linestyle 2 dt 2 lw 1 lc '#000000'"
-    |>> "set linestyle 3 dt 1 lw 1 lc '#000000'"
-    |>> "set linestyle 4 dt 1 lw 1 lc '#FF0000'"
-    |>> "set grid"
-    |>> "set key right top"
-    |>> $"plot \\"
-    |>> $"'{gnuplotPath1}' using 1:2 with lines linestyle 1 title 'C (carburizing)',\\"
-    |>> $"'{gnuplotPath2}' using 1:2 with lines linestyle 2 title 'C (homogenizing)',\\"
-    |>> $"'{gnuplotPath3}' using 1:2 with lines linestyle 3 title 'C (nitriding)',\\"
-    |>> $"''               using 1:3 with lines linestyle 4 title 'N (nitriding)'"
+    let result =
+        Gnuplot.GnuplotInteractive ()
+        |>> "set title 'Final Composition Profiles'"
+        |>> "set xlabel 'Depth (mm)'"
+        |>> "set ylabel 'Composition (%wt)'"
+        |>> "set linestyle 1 dt 3 lw 1 lc '#000000'"
+        |>> "set linestyle 2 dt 2 lw 1 lc '#000000'"
+        |>> "set linestyle 3 dt 1 lw 1 lc '#000000'"
+        |>> "set linestyle 4 dt 1 lw 1 lc '#FF0000'"
+        |>> "set grid"
+        |>> "set key right top"
+        |>> $"plot \\"
+        |>> $"'{gnuplotPath1}' using 1:2 with lines linestyle 1 title 'C (carburizing)',\\"
+        |>> $"'{gnuplotPath2}' using 1:2 with lines linestyle 2 title 'C (homogenizing)',\\"
+        |>> $"'{gnuplotPath3}' using 1:2 with lines linestyle 3 title 'C (nitriding)',\\"
+        |>> $"''               using 1:3 with lines linestyle 4 title 'N (nitriding)'"
+        |> ignore
+
+    0
+
+main ()
