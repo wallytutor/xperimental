@@ -267,21 +267,20 @@ module Slycke =
             let xInf = self.Model.massToMoleFraction (self.Setup.YInf t)
             let hInf = self.Setup.HInf t
 
-
             let mutable converged = false
             let mutable iteration = 0
             let mutable absErr = 0.0
             let mutable relErr = 0.0
 
-            let xcNow = self.CarbonField.Concentration
-            let xnNow = self.NitrogenField.Concentration
-
-            let xcTmp = Array.copy xcNow
-            let xnTmp = Array.copy xnNow
+            let xcTmp = Array.copy self.CarbonField.Concentration
+            let xnTmp = Array.copy self.NitrogenField.Concentration
 
             while not converged && iteration < self.Setup.MaxNonlinIter do
                 let innerOutputs = self.innerLoop Dc Dn xcTmp xnTmp xInf hInf tau
-                let absErr, relErr, xcNew, xnNew = innerOutputs
+                let absNew, relNew, xcNew, xnNew = innerOutputs
+
+                absErr <- absNew   // update the mutable binding so the final print is correct
+                relErr <- relNew
 
                 for i = 0 to self.numPoints - 1 do
                     xcTmp.[i] <- xcNew.[i]
@@ -289,9 +288,7 @@ module Slycke =
 
                 converged <- absErr < self.Setup.AbsoluteTolerance &&
                              relErr < self.Setup.RelativeTolerance
-
                 iteration <- iteration + 1
-                // converged <- true
 
             for i = 0 to self.numPoints - 1 do
                 self.CarbonField.Concentration.[i]   <- xcTmp.[i]
