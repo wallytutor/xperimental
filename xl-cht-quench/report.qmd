@@ -59,6 +59,26 @@ def make_sympy_symbols(*args: tuple[str, str], scope: dict = globals()):
 ```
 
 ```{python}
+# Density [kg/m³]
+v_rho_liq = 3500
+v_rho_sol = 4665
+
+# Dimensions [m]
+v_h_geo = 0.150
+v_l_geo = 0.130
+v_d_geo = 0.004
+
+# Mass [kg]
+v_m_liq = 0.236
+
+# Thermal conductivity of gap fluid [W/m-K]
+v_k_air = 0.025
+
+# Pseudo heat transfer coefficient of contact [W/m²-K]:
+v_U_int = 1.0e+03
+```
+
+```{python}
 make_sympy_symbols(
     # Densities of liquid and solid:
     ("rho_liq", r"\\rho_{liq}"),
@@ -101,6 +121,8 @@ make_sympy_symbols(
     ("a", r"a"),
     ("b", r"b"),
     ("c", r"c"),
+    ("phi0", r"\\phi_{0}"),
+    ("phi1", r"\\phi_{1}"),
 )
 ```
 
@@ -141,10 +163,9 @@ _R_air = sp.simplify(_d_air / (k_air * _l2 * h_geo))
 _R_cnv = 1 / (U_int * _l1 * h_geo)
 _R_eqv = sp.simplify(1 / ((1 / _R_air) + (1 / _R_cnv))).factor(phi)
 
-# Manipulate expression of _R_eqv for interpretation
+# Manipulate expression of _R_eqv for interpretation:
 _C1 = (rho_liq * _V_geo - m_liq) / _A_cross
 _tmp = _R_eqv.subs({_C1: C1})
-
 _num = sp.numer(_tmp)
 _den = sp.poly(sp.denom(_tmp), phi)
 _coeffs = _den.coeffs()
@@ -152,8 +173,41 @@ _coeffs = _den.coeffs()
 _a, _b, _c = reversed(_coeffs)
 _den = sp.Poly({2: a, 1: b, 0: c}, phi)
 _den = _den.expr.factor()
+_R_eq1 = _num / _den
 
-_R_eq1 = _num/_den
+# Further manipulate to get the partial fractions:
+_R_eq2 = C1 / ((phi - phi0) * (phi - phi1))
+_R_eq2 = sp.apart(_R_eq2, phi)
+
+# Multiply both by -1 just for better display in the text
+_A_tmp = -1*C1 / (phi0 - phi1)
+_R_eq2_part = -1*(1 / (phi -phi0) - 1 / (phi - phi1))
+
+# Compute roots of denominator:
+_Delta = sp.expand(_b**2 - 4*_a*_c)
+_phi_0 = (-1 * _b + sp.sqrt(_Delta)) / (2 * _a)
+_phi_1 = (-1 * _b - sp.sqrt(_Delta)) / (2 * _a)
+
+# Evaluate mean resistance without any influence:
+_limits = (phi, 0, _phi_max)
+_inv_lims = 1 / (_limits[2] - _limits[1])
+_R_avg_machine = sp.integrate(_R_eq2, _limits)
+_R_avg_machine = _inv_lims * _R_avg_machine
+
+# Evaluate mean resistance by manual analytical solution:
+_R_0 = sp.integrate(1 / (phi - phi0), _limits)
+_R_1 = sp.integrate(1 / (phi - phi1), _limits)
+_R_avg_manual = _inv_lims * _A_tmp * (_R_1 - _R_0)
+
+# Compose functions
+_R_func1 = _R_avg_machine.subs({C1: _C1, phi0: _phi_0, phi1: _phi_1})
+_R_func2 = _R_avg_manual.subs({C1: _C1, phi0: _phi_0, phi1: _phi_1})
+
+# symbs1 = list(_R_func1.free_symbols)
+# symbs2 = list(_R_func2.free_symbols)
+symbs = [h_geo, l_geo, d_geo, m_liq, rho_liq, k_air, U_int]
+f1 = sp.lambdify(symbs, _R_func1)
+f2 = sp.lambdify(symbs, _R_func2)
 ```
 
 ```{python}
@@ -183,8 +237,8 @@ The problem at hand is described in terms of an important number of symbols; for
 
 Before developing the full framework we will shortly discuss the relationships used more generally for computing the solidification shrinkage of a material. We stick to the already defined symbols, so calculations can proceed in a straightforward manner without new definitions.
 
----
-
+<div style="border-left: 4px solid #4a90e2; padding: 0.5em 1em;">
+<strong>Approach of fractional filling</strong>
 In the present we are dealing with imperfect mould filling, so {V_liq} is less than the geometric mould volume ${ltx(h_geo):s}{ltx(l_geo):s}{ltx(d_geo):s}$, so the filling fraction is defined as
 
 $$
@@ -204,8 +258,13 @@ $$
 \qquad\text{and}\qquad
 {ltx(Phi):s}=\frac{{ltx(m_liq):s}}{{ltx(rho_liq):s}{ltx(h_geo):s}{ltx(l_geo):s}{ltx(d_geo):s}}
 $$
+</div>
+<br>
 
 ---
+
+<div style="border-left: 4px solid #4a90e2; padding: 0.5em 1em;">
+<strong>Solidification shrinkage</strong>
 
 During solidification {m_liq} is conserved, so one can write 
 
@@ -234,6 +293,8 @@ from which one identifies the coefficient $\alpha$
 $$
 \alpha = \left(\frac{{ltx(rho_liq):s}}{{ltx(rho_sol):s}}\right)^{1/3}
 $$
+</div>
+<br>
 
 ## Statistical approach
 
@@ -288,18 +349,14 @@ As these modes of heat transfer act in parallel, the global resistance is given 
 $$
 R_{eq} = {ltx(_R_eqv):s}
 $$
-```
 
-
-```{python}
-%%md
-This expression can be restructured as
+This expression can be broken down into a more understandable format as
 
 $$
 \begin{aligned}
-R_{eq} &= {ltx(_R_eq1):s} = 
+R_{eq} &= {ltx(_R_eq1):s}
 \\[12pt]
-{ltx(C1):s} &= {ltx(_C):s} = {ltx(rho_liq):s}\left({ltx(d_geo):s} - d_{mean}\right)
+{ltx(C1):s} &= {ltx(rho_liq):s}\left({ltx(d_geo):s} - d_{mean}\right) = {ltx(_C1):s} 
 \\[12pt]
 {ltx(a):s} &= {ltx(_a):s}
 \\[12pt]
@@ -308,30 +365,60 @@ R_{eq} &= {ltx(_R_eq1):s} =
 {ltx(c):s} &= {ltx(_c):s}
 \end{aligned}
 $$
-```
 
-
-
-
-
-```{python}
-%%md
-- These expression can be reworked as partial fractions as follows:
+Splitting the partial fractions we rearrange the above into an easily integrable function
 
 $$
 \begin{aligned}
-R_{eq} & = A\left(\frac{1}{\phi - \phi_0} - \frac{1}{\phi-\phi_1}\right)
+R_{eq} &= {ltx(_R_eq2):s}
 \\[12pt]
-A &= {ltx(A_prime):s}
+&= {ltx(_A_tmp):s}\left({ltx(_R_eq2_part):s}\right)
+\end{aligned}
+$$
+
+The average value is found by integration as
+
+$$
+\begin{aligned}
+\langle{R_{eq}}\rangle &= \frac{1}{\phi_{max}}\int_{0}^{\phi_{max}}
+{ltx(_A_tmp):s}\left({ltx(_R_eq2_part):s}\right)d\phi
 \\[12pt]
-\phi_{0} &= {ltx(phi0):s}
+&= \frac{1}{\phi_{max}}\frac{C_1}{\phi_1-\phi_0}
+\left[\log\left(\frac{\phi - \phi_1}{\phi-\phi_0}\right)\right]_{0}^{\phi_{max}}
 \\[12pt]
-\phi_{1} &= {ltx(phi1):s}
+&= \frac{1}{\phi_{max}}\frac{C_1}{\phi_1-\phi_0}
+\log\left(\frac{\phi_0}{\phi_1}\frac{\phi_{max}-\phi_1}{\phi_{max}-\phi_0}\right)
 \end{aligned}
 $$
 ```
 
 
+```{python}
+R_eval1 = f1(v_h_geo, v_l_geo, v_d_geo, v_m_liq, v_rho_liq, v_k_air, v_U_int)
+R_eval2 = f2(v_h_geo, v_l_geo, v_d_geo, v_m_liq, v_rho_liq, v_k_air, v_U_int)
+```
+
+```{python}
+# kappa_eval = (d_geo - d_bar_eval) / (2 * R_avg * A_cross)
+v_A_cross = v_h_geo * v_l_geo
+v_d_mean = v_m_liq / (v_rho_liq * v_A_cross)
+(v_d_geo - v_d_mean) / (2 * R_eval2 * v_A_cross)
+```
+
+```{python}
+_Delta_poly = sp.poly(_Delta, U_int)
+_Delta_poly.coeff_monomial(1)
+_Delta_poly.coeff_monomial(U_int)
+_Delta_poly.coeff_monomial(U_int**2)
+```
+
+```{python}
+sp.solve(_Delta, U_int)[1]
+```
+
+```{python}
+_Delta_poly
+```
 
 
 
@@ -340,19 +427,19 @@ $$
 RHO_LIQ = 3500
 RHO_SOL = 4665
 
-# Pseudo heat transfer coefficient of contact [W/m²-K]:
-U_COEF = 1.0e+03
-
-# Thermal conductivity of gap fluid [W/m-K]
-K_COEF = 0.025
-
-# Mass [kg]
-val_m = 0.236
-
 # Dimensions [m]
 val_h = 0.150
 val_l = 0.130
 val_d = 0.004
+
+# Mass [kg]
+val_m = 0.236
+
+# Thermal conductivity of gap fluid [W/m-K]
+K_COEF = 0.025
+
+# Pseudo heat transfer coefficient of contact [W/m²-K]:
+U_COEF = 1.0e+03
 ```
 
 ```{python}
@@ -378,49 +465,6 @@ val_d_s = val_d_l * val_k_sol
 
 # Check for residual (equation correctness):
 val_res = RHO_SOL * val_h_s * val_l_s * val_d_s - val_m
-```
-
-## To-do
-
-- [ ] Include thermal radiation effect in gap.
-- [ ] Interpret the meaning of the minimum valid $U$.
-
-```{python}
-%%md
-- A mass {m_liq} of a liquid material of density {rho_liq} was poured in a mould; the volume occupied by such fluid is {V_liq}.
-
-- Filling is imperfect and only a fraction $\Phi=V_{{l}}/V_{{0}}$ of the geometric volume $V_{{0}}={ltx(V_geo):s}$ of the mould is replenished with the molten material.
-
-$$
-\Phi={ltx(V_liq/V_geo):s}
-$$
-
-- Assuming the filling defect happens only over the thickness, *i.e.* it is not isotropic, then the mean thickness $d_{bar}$ of the molten material is
-
-$$
-d_{bar} = \dfrac{V_{l}}{A_{c}}
-%
-\quad\text{where}\quad
-%
-A_{c} = {ltx(A_cross):s}
-%
-\quad\implies\quad
-%
-d_{bar} = {ltx(d_bar_eval):s}
-$$
-
-<div style="border-left: 4px solid #4a90e2; padding: 0.5em 1em;">
-<strong>Alternative approach for fractional filling</strong>
-
-- Introduce $\beta = \Phi^{1/n}$, where $n$ is the number of dimensions with defective filling
-
-- Then the volume of the system filled with molten material is $V=\beta^{n}x_1x_2x_3$ (for orthogonal dimensions $x_k$)
-
-- For $n=1$ we must choose the defective dimension, thus its mean value over the perpendicular cross section is $\hat{x}_{k} = \beta{}x_{k}$
-
-- That is equivalent to saying that the mean thickness of the molten material over $x_{k}$ is a fraction $\beta=\Phi$ of its value
-</div>
-<br>
 ```
 
 ```{python}
@@ -543,11 +587,11 @@ assert R_eqv_factorization_check == 0
 
 # -----------------------------------------------------------------
 
-limits = (phi, phi_min, 1)
+limits = (phi, 0, phi_min)
 R_1 = sp.integrate(1/(phi-phi0), limits)
 R_2 = sp.integrate(1/(phi-phi1), limits)
 R_avg = A_prime * (R_1 - R_2)
-R_avg /= (1 - phi_min)
+R_avg /= (phi_min)
 
 kappa_eval = (d_geo - d_bar_eval) / (2 * R_avg * A_cross)
 
@@ -570,14 +614,14 @@ val_d_bar   = fn_d_bar(*args)
 
 # -----------------------------------------------------------------
 
-ratio0 = (1 - val_phi0) / (val_phi_min - val_phi0)
-ratio1 = (1 - val_phi1) / (val_phi_min - val_phi1)
-R_avg_manual = val_A_prime * (sp.log(ratio0) - sp.log(ratio1))
-R_avg_manual /= (1 - val_phi_min)
+# ratio0 = (1 - val_phi0) / (val_phi_min - val_phi0)
+# ratio1 = (1 - val_phi1) / (val_phi_min - val_phi1)
+# R_avg_manual = val_A_prime * (sp.log(ratio0) - sp.log(ratio1))
+# R_avg_manual /= (1 - val_phi_min)
 
 fn_R_avg = lam(R_avg, symbols=selected)
 R_avg_symbolic = fn_R_avg(*args)
-assert np.isclose(R_avg_manual, R_avg_symbolic)
+# assert np.isclose(R_avg_manual, R_avg_symbolic)
 
 # -----------------------------------------------------------------
 
@@ -593,6 +637,29 @@ kappa_use, val_gap_avg
 
 ```{python}
 %%md
+- A mass {m_liq} of a liquid material of density {rho_liq} was poured in a mould; the volume occupied by such fluid is {V_liq}.
+
+- Filling is imperfect and only a fraction $\Phi=V_{{l}}/V_{{0}}$ of the geometric volume $V_{{0}}={ltx(V_geo):s}$ of the mould is replenished with the molten material.
+
+$$
+\Phi={ltx(V_liq/V_geo):s}
+$$
+
+- Assuming the filling defect happens only over the thickness, *i.e.* it is not isotropic, then the mean thickness $d_{bar}$ of the molten material is
+
+$$
+d_{bar} = \dfrac{V_{l}}{A_{c}}
+%
+\quad\text{where}\quad
+%
+A_{c} = {ltx(A_cross):s}
+%
+\quad\implies\quad
+%
+d_{bar} = {ltx(d_bar_eval):s}
+$$
+
+---
 
 A similar reasoning applies to the solidification shrinkage, but in this case we have no arguments for justifying a
 non-isotropic behavior, thus $n=3$. Using the available values for the different variables we establish the following:
@@ -604,49 +671,4 @@ non-isotropic behavior, thus $n=3$. Using the available values for the different
 - Thus, the molten material dimensions where approximately {val_h:.0f} cm x {val_l_l:.0f} cm x {10*val_d_l:.2f} mm due to under-filling over thickness.
 
 - Upon solidification shrinkage is isotropic, and the final dimensions of  {val_h_s:.2f} cm x {val_l_s:.2f} cm x {10*val_d_s:.2f} mm are computed.
-
-- Replacing the previous definitions we can show correctness of mass conservation ($\varepsilon\sim{sci_to_latex_decimal(val_res):s}$) as follows:
-
-$$
-m = \rho_{s}(\alpha{}l)(\alpha{}h)(\alpha\beta{}d)=
-\rho_{s}\alpha^3\beta{}lhd=
-\rho_{s}\left[\left(\frac{\rho_{l}}{\rho_{s}}\right)^{1/3}\right]^3\dfrac{{m}}{{\rho_{{l}} V_{{0}}}}{}V_0=m
-$$
-
----
-
-This is not sufficient to determine the effective thermal conductance of  the melt–mould interface. What one actually needs is the mean contact resistivity. Because the real contact geometry is unknown and inherently irregular, the problem has no unique deterministic solution. A statistical description of the contact surface is therefore required to obtain a meaningful equivalent conductance.
-
-- For the gap between molten material and mould we have:
-
-$$
-R_{gap}={ltx(R_gap):s}
-$$
-
-- For the direct contact between the molten material and mould we have:
-
-$$
-R_{con}={ltx(R_con):s}
-$$
-
-- As these modes of heat transfer act in parallel, the global resistance is given as:
-
-$$
-R_{eq}={ltx(R_eqv):s}
-$$
-
-- These expression can be reworked as partial fractions as follows:
-
-$$
-\begin{aligned}
-R_{eq} & = A\left(\frac{1}{\phi - \phi_0} - \frac{1}{\phi-\phi_1}\right)
-\\[12pt]
-A &= {ltx(A_prime):s}
-\\[12pt]
-\phi_{0} &= {ltx(phi0):s}
-\\[12pt]
-\phi_{1} &= {ltx(phi1):s}
-\end{aligned}
-$$
 ```
-
