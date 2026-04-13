@@ -18,22 +18,256 @@ execute:
   cache: false
   echo: false
   warning: false
-jupyter: python3
+jupyter:
+  jupytext:
+    text_representation:
+      extension: .qmd
+      format_name: quarto
+      format_version: '1.0'
+      jupytext_version: 1.19.1
+  kernelspec:
+    display_name: Python 3 (ipykernel)
+    language: python
+    name: python3
 ---
 
 
 ```{python}
+#| jupyter: {source_hidden: true}
 %load_ext majordome.magic
-```
 
-```{python}
 import numpy as np
 import sympy as sp
 
+from sympy import latex as ltx
 from majordome_utilities.common import sci_to_latex_decimal
 ```
 
-In what follows we develop a reasoning for establishing (1) the equivalent thermal conductivity, and (2) the thickness of a pseudo-gap to be introduced in a domain for representing non-ideal contact. This is required when we lack information regarding the actual interface thermal resistivity. First, a set of quantitites relevant to the problem are introduced, then the equations are developped.
+```{python}
+#| jupyter: {source_hidden: true}
+def make_sympy_symbols(*args: tuple[str, str], scope: dict = globals()):
+    """ Adds the given names to the global namespace as SymPy symbols. """
+    if "sp" not in scope:
+        scope["sp"] = sp
+
+    for symbol in args:
+        try:
+            symbol_name, latex_name = symbol
+            exec(f"{symbol_name} = sp.symbols('{latex_name}')", scope)
+        except Exception as e:
+            print(f"Error creating symbol {symbol}: {e}")
+```
+
+```{python}
+make_sympy_symbols(
+    # Densities of liquid and solid:
+    ("rho_liq", r"\\rho_{liq}"),
+    ("rho_sol", r"\\rho_{sol}"),
+
+    # Volumes of liquid and solid:
+    ("V_liq", r"V_{liq}"),
+    ("V_sol", r"V_{sol}"),
+    
+    # Geometry of the empty mould:
+    ("d_geo", r"d_{g}"),
+    ("l_geo", r"l_{g}"),
+    ("h_geo", r"h_{g}"),
+
+    # Auxiliary dimensions used in computations:
+    ("d", r"d"),
+    ("l", r"l"),
+    ("h", r"h"),
+    
+    # Mass of molten material:
+    ("m_liq", r"m_{liq}"),
+
+    # Transport coefficients:
+    ("k_air", r"\\kappa_{air}"),
+    ("k_mat", r"\\kappa_{mat}"),
+    ("U_int", r"U_{int}"),
+
+    # Thickness of plate over defect:
+    ("d_mean", r"d_{mean}"),
+    ("d_def", r"\\delta"),
+
+    # Volumetric filling deffect:
+    ("Phi", r"\\Phi"),
+    
+    # Fraction of defective width:
+    ("phi", r"\\phi"),
+)
+```
+
+```{python}
+%%md
+## Introduction
+
+When pouring a molten material in between metallic plates to promote fast cooling during solidification, *i.e.* quenching the material, one may face filling defects. Those may arise because of the mould geometry or simply because material instantly solidifies in contact with the walls of the container and blocks a perfect filling. Modeling the effects of imperfect filling is generally accounted for throught the introduction of thermal resistances; nonetheless, there is no general approach to derive these and free parameters are often used to calibrate models against experimental data. This note does not aim at eliminating this need, as it would be an important technical leap in the field of heat transfer simulation, but has the ambition of making the introduction of such coefficients reasoned upon the problem physics.
+
+To reach that end, we develop a reasoning for establishing (1) the equivalent thermal conductivity, and (2) the thickness of a pseudo-gap to be introduced between a molten material and a metallic mould in the simulation domain for representing non-ideal contact. It is assumed that convection in the fluid can be neglected due to the fast cooling and problem analysis is performed only in terms of heat conduction. A numerical extension is later discussed to introduce radiative effects. The problem is derived for a flat plat geometry only, as general geometries would not allow for an analytical solution and the ideas presented here can be extended to be numerically evaluated
+
+## Symbols list
+
+The problem at hand is described in terms of an important number of symbols; for convenience and ease of following the discussion, these are introduced in this section.
+
+- {rho_liq}, {rho_sol}: density of material in liquid and solid states, respectively [$\mathrm{kg\;m^{-3}}$]
+- {V_liq}, {V_sol}: volume occupied by material in liquid and solid states, respectively [$\mathrm{m^{3}}$]
+- {d_geo}, {l_geo}, {h_geo}: geometric dimensions of empty mould, thickness, width, depth, respectivelly [$\mathrm{m}$]
+- {d}, {l}, {h}: auxiliary dimensions (analogous to the above), thickness, width, depth, respectivelly [$\mathrm{m}$]
+- {m_liq}: mass of material effectivelly pourred in the mould [$\mathrm{kg}$]
+- {k_air}, {k_mat}: thermal conductivities of air and material, respectivelly [$\mathrm{W\;m^{-1},K^{-1}}$]
+- {U_int}: pseudo-convective coefficient for solid interface, discussed later [$\mathrm{W\;m^{-2},K^{-1}}$]
+- {d_def}: local thickness of plate in a defective location [$\mathrm{m}$]
+- {Phi}: effective volume fraction occupied by molten material [dimensionless]
+- {phi}: fraction of width {l_geo} where plate has thickness {d_def} [dimensionless]
+
+## Fundamental concepts
+
+Before developing the full framework we will shortly discuss the relationships used more generally for computing the solidification shrinkage of a material. We stick to the already defined symbols, so calculations can proceed in a straightforward manner without new definitions.
+
+---
+
+In the present we are dealing with imperfect mould filling, so {V_liq} is less than the geometric mould volume ${ltx(h_geo):s}{ltx(l_geo):s}{ltx(d_geo):s}$, so the filling fraction is defined as
+
+$$
+{ltx(Phi):s}=\frac{{ltx(V_liq):s}}{{ltx(h_geo):s}{ltx(l_geo):s}{ltx(d_geo):s}}
+$$
+
+Assuming the filling defect happens only over the thickness, *i.e.* it is not isotropic, then the mean thickness of the molten material is given simply by divding its volume by the mould vertical cross-section
+
+$$
+{ltx(d_mean):s} = \frac{{ltx(V_liq):s}}{A_{c}} = \frac{{ltx(V_liq):s}}{{ltx(h_geo):s}{ltx(l_geo):s}}
+$$
+
+The mass of liquid {m_liq} poured in the mould is known, so they can be reformulated in terms of measured quantities
+
+$$
+{ltx(d_mean):s} = \frac{{ltx(m_liq):s}}{{ltx(rho_liq):s}{ltx(h_geo):s}{ltx(l_geo):s}}
+\qquad\text{and}\qquad
+{ltx(Phi):s}=\frac{{ltx(m_liq):s}}{{ltx(rho_liq):s}{ltx(h_geo):s}{ltx(l_geo):s}{ltx(d_geo):s}}
+$$
+
+---
+
+During solidification {m_liq} is conserved, so one can write 
+
+$$
+{ltx(m_liq):s} = {ltx(rho_liq):s}{ltx(V_liq):s} = {ltx(rho_sol):s}{ltx(V_sol):s}
+$$
+
+what is equivalent of saying 
+
+$$
+\frac{{ltx(rho_liq):s}}{{ltx(rho_sol):s}} = \frac{{ltx(V_sol):s}}{{ltx(V_liq):s}}
+\qquad\text{or}\qquad
+{ltx(V_sol):s} = \frac{{ltx(rho_liq):s}}{{ltx(rho_sol):s}} {ltx(V_liq):s}
+$$
+
+For isotropic contraction the solid volume could be written in terms of liquid container dimensions as
+
+$$
+{ltx(V_sol):s} = (\alpha{}{ltx(h):s})(\alpha{}{ltx(l):s})(\alpha{}{ltx(d):s}) =
+\alpha^{3}{ltx(h):s}{ltx(l):s}{ltx(d):s} =
+\alpha^{3}{ltx(V_liq):s}
+$$
+
+from which one identifies the coefficient $\alpha$
+
+$$
+\alpha = \left(\frac{{ltx(rho_liq):s}}{{ltx(rho_sol):s}}\right)^{1/3}
+$$
+
+---
+```
+
+```{python}
+%%md
+xx
+```
+
+```{python}
+#| jupyter: {source_hidden: true}
+%%md
+
+A similar reasoning applies to the solidification shrinkage, but in this case we have no arguments for justifying a
+non-isotropic behavior, thus $n=3$. Using the available values for the different variables we establish the following:
+
+- The mould geometric dimensions are {val_h:.0f} cm x {val_l:.0f} cm x {10*val_d:.1f} mm, be a total empty volume of {val_V_geo:.1f} cm³
+
+- That could comport {val_m_geo:.0f} g of a liquid with density {RHO_LIQ:.2f} g/cm³, against the measured {val_m:.0f} g ({100*val_m/val_m_geo:.1f}%wt of capacity).
+
+- Thus, the molten material dimensions where approximately {val_h:.0f} cm x {val_l_l:.0f} cm x {10*val_d_l:.2f} mm due to under-filling over thickness.
+
+- Upon solidification shrinkage is isotropic, and the final dimensions of  {val_h_s:.2f} cm x {val_l_s:.2f} cm x {10*val_d_s:.2f} mm are computed.
+
+- Replacing the previous definitions we can show correctness of mass conservation ($\varepsilon\sim{sci_to_latex_decimal(val_res):s}$) as follows:
+
+$$
+m = \rho_{s}(\alpha{}l)(\alpha{}h)(\alpha\beta{}d)=
+\rho_{s}\alpha^3\beta{}lhd=
+\rho_{s}\left[\left(\frac{\rho_{l}}{\rho_{s}}\right)^{1/3}\right]^3\dfrac{{m}}{{\rho_{{l}} V_{{0}}}}{}V_0=m
+$$
+
+---
+
+- From mass conservation, we can evaluate the mean thickness of the molten material in defective regions as:
+
+$$
+\delta={ltx(delta_eval):s}
+$$
+
+- Using this expression we verify that the mean air gap between the molten material and the cooling plate is:
+
+$$
+\delta_{air}={ltx(delta_air):s}={ltx(delta_air_eval):s}
+$$
+
+- As expected the lower limit of full contact also matches the fractional filling (true only under the present hypotheses):
+
+$$
+\phi_{min}=\beta={ltx(phi_min):s}
+$$
+
+---
+
+This is not sufficient to determine the effective thermal conductance of  the melt–mould interface. What one actually needs is the mean contact resistivity. Because the real contact geometry is unknown and inherently irregular, the problem has no unique deterministic solution. A statistical description of the contact surface is therefore required to obtain a meaningful equivalent conductance.
+
+- For the gap between molten material and mould we have:
+
+$$
+R_{gap}={ltx(R_gap):s}
+$$
+
+- For the direct contact between the molten material and mould we have:
+
+$$
+R_{con}={ltx(R_con):s}
+$$
+
+- As these modes of heat transfer act in parallel, the global resistance is given as:
+
+$$
+R_{eq}={ltx(R_eqv):s}
+$$
+
+- These expression can be reworked as partial fractions as follows:
+
+$$
+\begin{aligned}
+R_{eq} & = A\left(\frac{1}{\phi - \phi_0} - \frac{1}{\phi-\phi_1}\right)
+\\[12pt]
+A &= {ltx(A_prime):s}
+\\[12pt]
+\phi_{0} &= {ltx(phi0):s}
+\\[12pt]
+\phi_{1} &= {ltx(phi1):s}
+\end{aligned}
+$$
+```
+
+
+
+
 
 ```{python}
 # Density [kg/m³]
@@ -86,13 +320,14 @@ val_res = RHO_SOL * val_h_s * val_l_s * val_d_s - val_m
 - [ ] Interpret the meaning of the minimum valid $U$.
 
 ```{python}
+#| jupyter: {source_hidden: true}
 %%md
 - A mass {m_liq} of a liquid material of density {rho_liq} was poured in a mould; the volume occupied by such fluid is {V_liq}.
 
-- Filling is imperfect and only a fraction $\Phi=V_{{l}}/V_{{0}}$ of the geometric volume $V_{{0}}={sp.latex(V_geo):s}$ of the mould is replenished with the molten material.
+- Filling is imperfect and only a fraction $\Phi=V_{{l}}/V_{{0}}$ of the geometric volume $V_{{0}}={ltx(V_geo):s}$ of the mould is replenished with the molten material.
 
 $$
-\Phi={sp.latex(V_liq/V_geo):s}
+\Phi={ltx(V_liq/V_geo):s}
 $$
 
 - Assuming the filling defect happens only over the thickness, *i.e.* it is not isotropic, then the mean thickness $d_{bar}$ of the molten material is
@@ -102,11 +337,11 @@ d_{bar} = \dfrac{V_{l}}{A_{c}}
 %
 \quad\text{where}\quad
 %
-A_{c} = {sp.latex(A_cross):s}
+A_{c} = {ltx(A_cross):s}
 %
 \quad\implies\quad
 %
-d_{bar} = {sp.latex(d_bar_eval):s}
+d_{bar} = {ltx(d_bar_eval):s}
 $$
 
 <div style="border-left: 4px solid #4a90e2; padding: 0.5em 1em;">
@@ -292,7 +527,7 @@ kappa_use, val_gap_avg
 ```
 
 ```{python}
----
+%%md
 
 A similar reasoning applies to the solidification shrinkage, but in this case we have no arguments for justifying a
 non-isotropic behavior, thus $n=3$. Using the available values for the different variables we establish the following:
@@ -318,19 +553,19 @@ $$
 - From mass conservation, we can evaluate the mean thickness of the molten material in defective regions as:
 
 $$
-\delta={sp.latex(delta_eval):s}
+\delta={ltx(delta_eval):s}
 $$
 
 - Using this expression we verify that the mean air gap between the molten material and the cooling plate is:
 
 $$
-\delta_{air}={sp.latex(delta_air):s}={sp.latex(delta_air_eval):s}
+\delta_{air}={ltx(delta_air):s}={ltx(delta_air_eval):s}
 $$
 
 - As expected the lower limit of full contact also matches the fractional filling (true only under the present hypotheses):
 
 $$
-\phi_{min}=\beta={sp.latex(phi_min):s}
+\phi_{min}=\beta={ltx(phi_min):s}
 $$
 
 ---
@@ -340,19 +575,19 @@ This is not sufficient to determine the effective thermal conductance of  the me
 - For the gap between molten material and mould we have:
 
 $$
-R_{gap}={sp.latex(R_gap):s}
+R_{gap}={ltx(R_gap):s}
 $$
 
 - For the direct contact between the molten material and mould we have:
 
 $$
-R_{con}={sp.latex(R_con):s}
+R_{con}={ltx(R_con):s}
 $$
 
 - As these modes of heat transfer act in parallel, the global resistance is given as:
 
 $$
-R_{eq}={sp.latex(R_eqv):s}
+R_{eq}={ltx(R_eqv):s}
 $$
 
 - These expression can be reworked as partial fractions as follows:
@@ -361,11 +596,11 @@ $$
 \begin{aligned}
 R_{eq} & = A\left(\frac{1}{\phi - \phi_0} - \frac{1}{\phi-\phi_1}\right)
 \\[12pt]
-A &= {sp.latex(A_prime):s}
+A &= {ltx(A_prime):s}
 \\[12pt]
-\phi_{0} &= {sp.latex(phi0):s}
+\phi_{0} &= {ltx(phi0):s}
 \\[12pt]
-\phi_{1} &= {sp.latex(phi1):s}
+\phi_{1} &= {ltx(phi1):s}
 \end{aligned}
 $$
 ```
