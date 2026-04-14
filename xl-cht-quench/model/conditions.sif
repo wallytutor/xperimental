@@ -3,7 +3,7 @@
 ! ---------------------------------------------------------------------
 
 ! Overheating temperature of the ingot material (in K):
-$ OVERHEAT = 20.0;
+$ OVERHEAT = 0.0;
 
 ! Melting temperature of the ingot material (in K):
 $ T_MELT = 1900.00 + OVERHEAT + 273.15;
@@ -27,9 +27,6 @@ $ BDF_ORDER = 1;
 $ MAX_ITER = 500;
 $ NONLINEAR_TOL = 1.0e-06;
 $ RELAXATION = 0.3;
-
-! Equivalent conductivity for the gap material:
-$ K_METAL = 50.0;
 
 ! ---------------------------------------------------------------------
 ! Constants
@@ -158,8 +155,7 @@ Material 3
     ! Lower value for stainless steel!
     Emissivity = 0.6
 
-    ! Heat Conductivity = 17.0
-    Heat Conductivity = $(K_METAL)
+    Heat Conductivity = 20.0
 
     Heat Capacity = 500
 
