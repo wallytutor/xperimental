@@ -12,7 +12,7 @@ $script:PyEnv = [PSCustomObject]@{
 $script:MeshFile  = "$PSScriptRoot\model\geometry.msh"
 $script:ElmerMesh = "$PSScriptRoot\model\elmer"
 $script:MergeTol  = 1.0e-05
-$script:NumProc   = 20
+$script:NumProc   = 4
 
 function Invoke-ElmerGridConversion {
     if (-not (Test-Path -Path $script:MeshFile)) {

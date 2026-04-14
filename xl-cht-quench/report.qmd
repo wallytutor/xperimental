@@ -32,7 +32,7 @@ jupyter:
 ---
 
 
-```{python}
+```{python, title="Imports"}
 #| jupyter: {source_hidden: true}
 %load_ext majordome.magic
 
@@ -45,7 +45,7 @@ from majordome_utilities.plotting import plot2d
 from majordome_utilities.common import sci_to_latex_decimal
 ```
 
-```{python}
+```{python, title="SymPy Symbols"}
 #| jupyter: {source_hidden: true}
 def make_sympy_symbols(*args: tuple, scope: dict = globals()):
     """ Adds the given names to the global namespace as SymPy symbols. """
@@ -61,13 +61,13 @@ def make_sympy_symbols(*args: tuple, scope: dict = globals()):
                 symbol_name, latex_name, hypotheses = symbol
                 hypotheses = ",".join([f"{k}={v}" for k, v in hypotheses.items()])
                 args = f"'{latex_name}', {hypotheses}"
-                
+
             exec(f"{symbol_name} = sp.symbols({args})", scope)
         except Exception as e:
             print(f"Error creating symbol {symbol}: {e}")
 ```
 
-```{python}
+```{python, title="Problem data"}
 #| jupyter: {source_hidden: true}
 # Density [kg/m³]
 v_rho_liq = 3500
@@ -85,11 +85,10 @@ v_m_liq = 0.236
 v_k_air = 0.025
 
 # Thermal conductivity of the material [W/m-K]
-# TODO make this a polynomial!
 v_k_mat = 3.000
 ```
 
-```{python}
+```{python, title="SymPy symbols"}
 #| jupyter: {source_hidden: true}
 nonnegative = {"nonnegative": True}
 positive    = {"positive": True}
@@ -102,7 +101,7 @@ make_sympy_symbols(
     # Volumes of liquid and solid:
     ("V_liq", r"V_{liq}", positive),
     ("V_sol", r"V_{sol}", positive),
-    
+
     # Geometry of the empty mould:
     ("d_geo", r"d_{g}", positive),
     ("l_geo", r"l_{g}", positive),
@@ -112,7 +111,7 @@ make_sympy_symbols(
     ("d", r"d", positive),
     ("l", r"l", positive),
     ("h", r"h", positive),
-    
+
     # Mass of molten material:
     ("m_liq", r"m_{liq}", positive),
     ("m_liq_max", r"m_{liq}^{max}", positive),
@@ -128,7 +127,7 @@ make_sympy_symbols(
 
     # Volumetric filling deffect:
     ("Phi", r"\\Phi", positive),
-    
+
     # Fraction of full width:
     ("phi", r"\\phi", nonnegative),
 
@@ -137,7 +136,7 @@ make_sympy_symbols(
 )
 ```
 
-```{python}
+```{python, title="Introduction"}
 #| jupyter: {source_hidden: true}
 %%md
 ## Introduction
@@ -147,7 +146,7 @@ When pouring a molten material in between metallic plates to promote fast coolin
 To reach that end, we develop a reasoning for establishing (1) the equivalent thermal conductivity, and (2) the thickness of a pseudo-gap to be introduced between a molten material and a metallic mould in the simulation domain for representing non-ideal contact. It is assumed that convection in the fluid can be neglected due to the fast cooling and problem analysis is performed only in terms of heat conduction. A numerical extension is later discussed to introduce radiative effects. The problem is derived for a flat plat geometry only, as general geometries would not allow for an analytical solution and the ideas presented here can be extended to be numerically evaluated
 ```
 
-```{python}
+```{python, title="Symbols list"}
 #| jupyter: {source_hidden: true}
 %%md
 ## Symbols list
@@ -166,7 +165,7 @@ The problem at hand is described in terms of an important number of symbols; for
 - {phi}: fraction of width {l_geo} where plate has thickness {d_geo} [dimensionless]
 ```
 
-```{python}
+```{python, title="Fundamental concepts"}
 #| jupyter: {source_hidden: true}
 %%md
 ## Fundamental concepts
@@ -194,16 +193,16 @@ $$
 $$
 ```
 
-```{python}
+```{python, title="Solidification shrinkage"}
 #| jupyter: {source_hidden: true}
 %%md
-**Solidification shrinkage:** During solidification {m_liq} is conserved, so one can write 
+**Solidification shrinkage:** During solidification {m_liq} is conserved, so one can write
 
 $$
 {ltx(m_liq):s} = {ltx(rho_liq):s}{ltx(V_liq):s} = {ltx(rho_sol):s}{ltx(V_sol):s}
 $$
 
-what is equivalent of saying 
+what is equivalent of saying
 
 $$
 \frac{{ltx(rho_liq):s}}{{ltx(rho_sol):s}} = \frac{{ltx(V_sol):s}}{{ltx(V_liq):s}}
@@ -226,7 +225,7 @@ $$
 $$
 ```
 
-```{python}
+```{python, title="Geometric calculations"}
 #| jupyter: {source_hidden: true}
 # Vertical cross-section of the mould:
 _A_cross = h_geo * l_geo
@@ -244,7 +243,7 @@ _d_mean = _V_liq / _A_cross
 _V_tot1 = _d_mean * h_geo * l_geo
 ```
 
-```{python}
+```{python, title="Statistical approach"}
 #| jupyter: {source_hidden: true}
 # Total volume computed from contact/defect zones:
 _l1 = phi * l_geo  # --> Perfect contact width
@@ -285,7 +284,7 @@ v_arr_d_def = eval_d_def(v_arr_phi)
 v_arr_d_air = eval_d_air(v_arr_phi)
 ```
 
-```{python}
+```{python, title="Statistical approach"}
 #| jupyter: {source_hidden: true}
 %%md
 ## Statistical approach
@@ -314,17 +313,14 @@ $$
 d_{air} = \frac{{ltx(d_geo):s}-{ltx(d_def):s}}{2} = {ltx(_d_air):s}
 $$
 
-This thickness provides the baseline for the evaluation of the global thermal resistance of the contact.
+This thickness provides the baseline for the evaluation of the global thermal resistance of the contact. Below we display the thickness of the plate in terms of {phi} over its domain. Here we observe that ${ltx(d_def):s}(0)$ equals the mean plate thickness and decreases up to its vanishing point (where the plate is replaced by air, meaning that the opposite faces of the mould can see each other).
 ```
 
-```{python}
+```{python, title="Plot of plate thickness over defective region"}
 #| jupyter: {source_hidden: true}
-%%md
-Below we display the thickness of the plate in terms of {phi} over its domain. Here we observe that ${ltx(d_def):s}(0)$ equals the mean plate thickness and decreases up to its vanishing point (where the plate is replaced by air, meaning that the opposite faces of the mould can see each other).
-```
-
-```{python}
-#| jupyter: {source_hidden: true}
+#| fig-cap: Thickness of the plate in defective region in terms of $\phi$
+#| fig-align: center
+#| out-width: 50%
 p = plot2d(v_arr_phi, 1000 * v_arr_d_def, color="k")
 p.axes[0].set_xlabel(r"$\phi$")
 p.axes[0].set_ylabel(rf"${ltx(d_def)}$ [mm]")
@@ -341,6 +337,9 @@ Converselly, the air gap increases from its minimum (average value) to half-thic
 
 ```{python}
 #| jupyter: {source_hidden: true}
+#| fig-cap: Air gap thickness in defective region in terms of $\phi$
+#| fig-align: center
+#| out-width: 50%
 p = plot2d(v_arr_phi, 1000 * v_arr_d_air, color="k")
 p.axes[0].set_xlabel(r"$\phi$")
 p.axes[0].set_ylabel(r"$d_{air}$ [mm]")
@@ -349,7 +348,7 @@ p.resize(6, 5)
 pass
 ```
 
-```{python}
+```{python, title="Thermal resistance calculations"}
 #| jupyter: {source_hidden: true}
 # Contributions to the air-melt pair
 _Ra = _d_def / (2 * _l2 * h_geo * k_mat)
@@ -374,11 +373,20 @@ _f_Rb    = sp.lambdify(_sym_R, _Rb)
 _f_R1    = sp.lambdify(_sym_R, _R1)
 _f_R_eq  = sp.lambdify(_sym_R, _R_eq)
 
-def eval_Ra(phi):   return _f_Ra(*_arg_R, phi)
-def eval_Rb(phi):   return _f_Rb(*_arg_R, phi)
-def eval_R1(phi):   return _f_R1(*_arg_R, phi)
-def eval_R_eq(phi): return _f_R_eq(*_arg_R, phi)
-def eval_R_avg():   return _f_R_avg(*_arg_R)
+def eval_Ra(phi):
+    return _f_Ra(*_arg_R, phi)
+
+def eval_Rb(phi):
+    return _f_Rb(*_arg_R, phi)
+
+def eval_R1(phi):
+    return _f_R1(*_arg_R, phi)
+
+def eval_R_eq(phi):
+    return _f_R_eq(*_arg_R, phi)
+
+def eval_R_avg():
+    return _f_R_avg(*_arg_R)
 
 # --- EVALUATE FUNCTIONS FOR PLOTTING
 
@@ -390,7 +398,7 @@ v_arr_R1    = eval_R1(v_arr_phi)
 v_arr_R_eq  = eval_R_eq(v_arr_phi)
 ```
 
-```{python}
+```{python, title="Thermal resistance calculations"}
 #| jupyter: {source_hidden: true}
 %%md
 So far one cannot to determine the effective thermal conductance of the melt–mould interface, as a free parameter {phi} remains in the formulation. In what follows we focus on finding the mean contact resistivity, as the real contact geometry is unknown and inherently irregular. A statistical description of the contact surface is therefore required to obtain a meaningful equivalent conductance, what implies integration of the resistivities of the estimated lengths of contact.
@@ -398,7 +406,11 @@ So far one cannot to determine the effective thermal conductance of the melt–m
 For the defective region composed of a layer of air and the half-thickness of the molten plate we have:
 
 $$
-R_{1} = R_{air} + R_{melt} = {ltx(_R1):s}
+\begin{aligned}
+R_{1} &= R_{air} + R_{melt}
+\\[12pt]
+&= {ltx(_R1):s}
+\end{aligned}
 $$
 
 This function and its different contributions is depicted below. Over the whole range the behavior is dominated by air resistance contribution (notice the log-scale).
@@ -406,6 +418,9 @@ This function and its different contributions is depicted below. Over the whole 
 
 ```{python}
 #| jupyter: {source_hidden: true}
+#| fig-cap: Thermal resistance contributions in the defective region
+#| fig-align: center
+#| out-width: 50%
 p = plot2d(v_arr_phi, v_arr_R1, color="k", label="Total")
 p.axes[0].plot(v_arr_phi, v_arr_Ra, label="Melt contribution")
 p.axes[0].plot(v_arr_phi, v_arr_Rb, label="Air contribution")
@@ -418,7 +433,7 @@ p.resize(6, 5)
 pass
 ```
 
-```{python}
+```{python, title="Thermal resistance calculations"}
 #| jupyter: {source_hidden: true}
 %%md
 For the direct contact between the molten material and mould we have
@@ -430,7 +445,11 @@ $$
 Notice that this function has a singularity for ${ltx(phi):s}=0$. Nonetheless, that poses no problem for the evaluation of the overall system thermal resistance as these modes of heat transfer act in parallel, and the global resistance is given as
 
 $$
-R_{eq} = \left(\frac{1}{R_1}+\frac{1}{R_2}\right)^{-1} = {ltx(_R_eq):s}
+\begin{aligned}
+R_{eq} &= \left(\frac{1}{R_1}+\frac{1}{R_2}\right)^{-1}
+\\[12pt]
+&= {ltx(_R_eq):s}
+\end{aligned}
 $$
 
 The evaluation of this function over is domain is provided below; for low values of {phi} the resistance grows quickly as the system is limited by air gap conduction and its value decreases to its lowest level at the maximum allowed contact.
@@ -438,6 +457,9 @@ The evaluation of this function over is domain is provided below; for low values
 
 ```{python}
 #| jupyter: {source_hidden: true}
+#| fig-cap: Overall thermal resistance of the system in terms of $\phi$
+#| fig-align: center
+#| out-width: 50%
 p = plot2d(v_arr_phi, v_arr_R_eq, color="k", label="Total")
 p.axes[0].set_xlabel(r"$\phi$")
 p.axes[0].set_ylabel(r"$R_{eq}$ [$\mathrm{KW^{-1}}$]")
@@ -447,7 +469,7 @@ p.resize(6, 5)
 pass
 ```
 
-```{python}
+```{python, title="Preparing for analytical integration"}
 #| jupyter: {source_hidden: true}
 _num, _den = _R_eq.as_numer_denom()
 _num = sp.poly(_num, phi)
@@ -468,7 +490,7 @@ _d0 = _b0 / _b1
 assert sp.simplify(((_a1 / _b1) * (phi + _c0) / (phi + _d0)).expand() - _num/_den) == 0
 ```
 
-```{python}
+```{python, title="Preparing for analytical integration (1)"}
 #| jupyter: {source_hidden: true}
 %%md
 Please notice that the previous expression is in fact a simple function of {phi} which can be expressed in a more convenient form as
@@ -485,10 +507,10 @@ b_1 &= {ltx(_b1):s}
 $$
 ```
 
-```{python}
+```{python, title="Preparing for analytical integration (2)"}
 #| jupyter: {source_hidden: true}
 %%md
-For proceeding with its integration we can rewrite this function as 
+For proceeding with its integration we can rewrite this function as
 
 $$
 \begin{aligned}
@@ -500,21 +522,23 @@ d_0 &= {ltx(_b0/_b1):s}
 $$
 ```
 
-```{python}
+```{python, title="Limits of integration"}
 #| jupyter: {source_hidden: true}
 %%md
 <div style="border-left: 4px solid #4a90e2; padding: 0.5em 1em;">
 <strong>A note about integration limits</strong>
+
 An important subtlety that needs to be discussed here and will impact the averaging process. Notice that nothing has been said about the domain of {phi}. As we assume a defective filling it is always possible to concentrate the molten material in the center of the mould without touching the walls, so its lower bound is zero; on the other hand, there is a maximum width that can be filled so that the whole thickness is occupied and that happens when {d_def} vanishes. It is obvious that under this constraint we should find a value that matches the fractional filling inside the mould:
 
 $$
 \phi_{max} = {ltx(_phi_max):s} = {ltx(Phi):s}
 $$
+
 </div>
 <br>
 ```
 
-```{python}
+```{python, title="Analytical integration"}
 #| jupyter: {source_hidden: true}
 %%md
 Its integration is straightfoward as follows
@@ -531,7 +555,7 @@ $$
 $$
 ```
 
-```{python}
+```{python, title="Final calculations"}
 #| jupyter: {source_hidden: true}
 %%md
 This is the overall resistance of the system; for the gap alone we have
@@ -553,7 +577,7 @@ $$
 This closes the problem as stated in the introduction and provides an analytical estimate of the value ot be used.
 ```
 
-```{python}
+```{python, title="Final calculations"}
 #| jupyter: {source_hidden: true}
 # Term inside the log:
 _alog = 1 + _phi_max / _d0
@@ -575,9 +599,15 @@ _f_alog     = sp.lambdify(_sym_f_alog, _alog)
 _f_R_eq_avg = sp.lambdify(_sym_f_alog, _R_eq_avg)
 _f_R_gap    = sp.lambdify(_sym_f_alog, _R_gap)
 
-def eval_alog():     return _f_alog(*_arg_f_alog)
-def eval_R_eq_avg(): return _f_R_eq_avg(*_arg_f_alog)
-def eval_R_gap():    return _f_R_gap(*_arg_f_alog)
+def eval_alog():
+    return _f_alog(*_arg_f_alog)
+
+def eval_R_eq_avg():
+    return _f_R_eq_avg(*_arg_f_alog)
+
+def eval_R_gap():
+    return _f_R_gap(*_arg_f_alog)
+
 
 v_R_eq_avg = eval_R_eq_avg()
 v_R_gap    = eval_R_gap()
@@ -598,7 +628,7 @@ v_h_final = v_h_geo * v_alpha
 v_l_final = v_l_geo * v_alpha
 ```
 
-```{python}
+```{python, title="Application case"}
 #| jupyter: {source_hidden: true}
 %%md
 ## Application case
@@ -614,16 +644,15 @@ $$
 $$
 
 Regarding final dimensions, the molten plate mean thickness {1000*v_d_mean:.2f} mm is expected to retract by {100*(1-v_alpha):.1f}% over each direction (a volume shrinkage of {100*(1 - v_gamma):.1f}%), producing a final solid slab of dimensions ${1000*v_h_final:.0f}\times{1000*v_l_final:.0f}\times{1000*v_d_final:.2f}$ mm. As heat is extracted by the mould, shrinkage is expected to be manifested as the formation of voids in the core of material, thus not affecting the contact heat transfer.
-```
 
-```{python}
-#| jupyter: {source_hidden: true}
-%%md
 If fact, as one might expect, the thermal conductivity of the pourred material changes with temperature; below we provide the raw data.
 ```
 
-```{python}
+```{python, title="Thermal conductivity of the material"}
 #| jupyter: {source_hidden: true}
+#| fig-cap: Actual thermal conductivity of the material in terms of temperature
+#| fig-align: center
+#| out-width: 50%
 df = pd.read_csv("model/data/k.dat", sep=r"\s+", header=None)
 v_T = df[0].to_numpy()
 v_k = df[1].to_numpy()
@@ -637,7 +666,7 @@ def k_fit(t):
 
 def eval_R_gap_T(T, k):
     return _f_R_gap(k, *_arg_f_alog[1:])
-    
+
 # def eval_R_gap_T(T):
 #     return _f_R_gap(k_fit(T), *_arg_f_alog[1:])
 
@@ -655,8 +684,11 @@ pass
 By applying our approach we can finally translate it into the gap effective property over the whole temperature range:
 ```
 
-```{python}
+```{python, title="Thermal conductivity of the gap"}
 #| jupyter: {source_hidden: true}
+#| fig-cap: Effective thermal conductivity of the gap in terms of temperature
+#| fig-align: center
+#| out-width: 50%
 # df[2] = v_k_eff = v_d_air / (eval_R_gap_T(v_T) * v_A_cross)
 df[2] = v_k_eff = v_d_air / (eval_R_gap_T(v_T, v_k) * v_A_cross)
 
@@ -669,4 +701,10 @@ p.axes[0].set_xlabel(r"Temperature [$\mathrm{K}$]")
 p.axes[0].set_ylabel(r"Thermal conductivity [$\mathrm{W\,m^{-1}\,K^{-1}}$]")
 p.axes[0].set_xlim(200, 2500)
 pass
+```
+
+```{python, title="Conclusions"}
+#| jupyter: {source_hidden: true}
+%%md
+Using the above curve (as a table in Elmer) and the characteristic gap size of {1000*v_d_air:.2f} mm should provide an insightfull way of coupling the incomplete filled interface. The attentive reader might have noticed that we neglected the side (represented by thickness {d_geo}), but as we consider plates where {l_geo} is significantly larger, this should introduce an small error in the estimations. It should be emphasized that this should provide the lower bound of heat transfer, as the contribution of radiation has been neglected (and becomes too difficult to handle when coupling with solution software), but it should be a better guess than setting up an arbitrary interface resistance.
 ```

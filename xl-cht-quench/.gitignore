@@ -9,3 +9,4 @@ model/*.msh
 model/log.*
 model/init.result.*
 model/convergence.dat
+report.pdf
