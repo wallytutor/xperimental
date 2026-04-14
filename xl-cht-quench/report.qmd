@@ -37,28 +37,38 @@ jupyter:
 %load_ext majordome.magic
 
 import numpy as np
+import pandas as pd
 import sympy as sp
 
 from sympy import latex as ltx
+from majordome_utilities.plotting import plot2d
 from majordome_utilities.common import sci_to_latex_decimal
 ```
 
 ```{python}
 #| jupyter: {source_hidden: true}
-def make_sympy_symbols(*args: tuple[str, str], scope: dict = globals()):
+def make_sympy_symbols(*args: tuple, scope: dict = globals()):
     """ Adds the given names to the global namespace as SymPy symbols. """
     if "sp" not in scope:
         scope["sp"] = sp
 
     for symbol in args:
         try:
-            symbol_name, latex_name = symbol
-            exec(f"{symbol_name} = sp.symbols('{latex_name}')", scope)
+            if len(symbol) == 2:
+                symbol_name, latex_name = symbol
+                args = f"'{latex_name}'"
+            else:
+                symbol_name, latex_name, hypotheses = symbol
+                hypotheses = ",".join([f"{k}={v}" for k, v in hypotheses.items()])
+                args = f"'{latex_name}', {hypotheses}"
+                
+            exec(f"{symbol_name} = sp.symbols({args})", scope)
         except Exception as e:
             print(f"Error creating symbol {symbol}: {e}")
 ```
 
 ```{python}
+#| jupyter: {source_hidden: true}
 # Density [kg/m³]
 v_rho_liq = 3500
 v_rho_sol = 4665
@@ -74,150 +84,72 @@ v_m_liq = 0.236
 # Thermal conductivity of gap fluid [W/m-K]
 v_k_air = 0.025
 
-# Pseudo heat transfer coefficient of contact [W/m²-K]:
-v_U_int = 1.0e+03
+# Thermal conductivity of the material [W/m-K]
+# TODO make this a polynomial!
+v_k_mat = 3.000
 ```
 
 ```{python}
+#| jupyter: {source_hidden: true}
+nonnegative = {"nonnegative": True}
+positive    = {"positive": True}
+
 make_sympy_symbols(
     # Densities of liquid and solid:
-    ("rho_liq", r"\\rho_{liq}"),
-    ("rho_sol", r"\\rho_{sol}"),
+    ("rho_liq", r"\\rho_{liq}", positive),
+    ("rho_sol", r"\\rho_{sol}", positive),
 
     # Volumes of liquid and solid:
-    ("V_liq", r"V_{liq}"),
-    ("V_sol", r"V_{sol}"),
+    ("V_liq", r"V_{liq}", positive),
+    ("V_sol", r"V_{sol}", positive),
     
     # Geometry of the empty mould:
-    ("d_geo", r"d_{g}"),
-    ("l_geo", r"l_{g}"),
-    ("h_geo", r"h_{g}"),
+    ("d_geo", r"d_{g}", positive),
+    ("l_geo", r"l_{g}", positive),
+    ("h_geo", r"h_{g}", positive),
 
     # Auxiliary dimensions used in computations:
-    ("d", r"d"),
-    ("l", r"l"),
-    ("h", r"h"),
+    ("d", r"d", positive),
+    ("l", r"l", positive),
+    ("h", r"h", positive),
     
     # Mass of molten material:
-    ("m_liq", r"m_{liq}"),
+    ("m_liq", r"m_{liq}", positive),
+    ("m_liq_max", r"m_{liq}^{max}", positive),
 
     # Transport coefficients:
-    ("k_air", r"\\kappa_{air}"),
-    ("k_mat", r"\\kappa_{mat}"),
-    ("U_int", r"U_{int}"),
+    ("k_air", r"k_{air}", positive),
+    ("k_mat", r"k_{mat}", positive),
+    ("k_eff", r"k_{eff}", positive),
 
     # Thickness of plate over defect:
-    ("d_mean", r"d_{mean}"),
-    ("d_def", r"\\delta"),
+    ("d_mean", r"d_{mean}", nonnegative),
+    ("d_def", r"\\delta", nonnegative),
 
     # Volumetric filling deffect:
-    ("Phi", r"\\Phi"),
+    ("Phi", r"\\Phi", positive),
     
     # Fraction of full width:
-    ("phi", r"\\phi"),
+    ("phi", r"\\phi", nonnegative),
 
-    # Auxiliary for integration:
-    ("C1", r"C_{1}"),
-    ("a", r"a"),
-    ("b", r"b"),
-    ("c", r"c"),
-    ("phi0", r"\\phi_{0}"),
-    ("phi1", r"\\phi_{1}"),
+    # Temperature
+    ("T", r"T", nonnegative),
 )
 ```
 
 ```{python}
-# Vertical cross-section of the mould:
-_A_cross = h_geo * l_geo
-
-# Geometric volume of the mould
-_V_geo = _A_cross * d_geo
-
-# Volume of molten fluid:
-_V_liq = m_liq / rho_liq
-
-# Mean thickness of plate over width:
-_d_mean = _V_liq / _A_cross
-
-# Total volume computed from mean thickness:
-_V_tot1 = _d_mean * h_geo * l_geo
-
-# Total volume computed from contact/defect zones:
-_l1 = phi * l_geo  # --> Perfect contact width
-_l2 = l_geo - _l1  # --> Gap zone width
-_V_fill = _l1 * h_geo * d_geo
-_V_def  = _l2 * h_geo * d_def
-_V_tot2 = _V_fill + _V_def
-
-# Thickness of plate over defective region:
-_d_def = sp.solve(_V_tot1 - _V_tot2, d_def)[0]
-
-# Air gap thickness in defective region:
-_d_air = (d_geo - _d_def) / 2
-
-# Upper bound of complete coverage:
-_phi_max = sp.solve(_d_def, phi)[0]
-
-# Thermal resistivities:
-_R_air = sp.simplify(_d_air / (k_air * _l2 * h_geo))
-_R_cnv = 1 / (U_int * _l1 * h_geo)
-_R_eqv = sp.simplify(1 / ((1 / _R_air) + (1 / _R_cnv))).factor(phi)
-
-# Manipulate expression of _R_eqv for interpretation:
-_C1 = (rho_liq * _V_geo - m_liq) / _A_cross
-_tmp = _R_eqv.subs({_C1: C1})
-_num = sp.numer(_tmp)
-_den = sp.poly(sp.denom(_tmp), phi)
-_coeffs = _den.coeffs()
-
-_a, _b, _c = reversed(_coeffs)
-_den = sp.Poly({2: a, 1: b, 0: c}, phi)
-_den = _den.expr.factor()
-_R_eq1 = _num / _den
-
-# Further manipulate to get the partial fractions:
-_R_eq2 = C1 / ((phi - phi0) * (phi - phi1))
-_R_eq2 = sp.apart(_R_eq2, phi)
-
-# Multiply both by -1 just for better display in the text
-_A_tmp = -1*C1 / (phi0 - phi1)
-_R_eq2_part = -1*(1 / (phi -phi0) - 1 / (phi - phi1))
-
-# Compute roots of denominator:
-_Delta = sp.expand(_b**2 - 4*_a*_c)
-_phi_0 = (-1 * _b + sp.sqrt(_Delta)) / (2 * _a)
-_phi_1 = (-1 * _b - sp.sqrt(_Delta)) / (2 * _a)
-
-# Evaluate mean resistance without any influence:
-_limits = (phi, 0, _phi_max)
-_inv_lims = 1 / (_limits[2] - _limits[1])
-_R_avg_machine = sp.integrate(_R_eq2, _limits)
-_R_avg_machine = _inv_lims * _R_avg_machine
-
-# Evaluate mean resistance by manual analytical solution:
-_R_0 = sp.integrate(1 / (phi - phi0), _limits)
-_R_1 = sp.integrate(1 / (phi - phi1), _limits)
-_R_avg_manual = _inv_lims * _A_tmp * (_R_1 - _R_0)
-
-# Compose functions
-_R_func1 = _R_avg_machine.subs({C1: _C1, phi0: _phi_0, phi1: _phi_1})
-_R_func2 = _R_avg_manual.subs({C1: _C1, phi0: _phi_0, phi1: _phi_1})
-
-# symbs1 = list(_R_func1.free_symbols)
-# symbs2 = list(_R_func2.free_symbols)
-symbs = [h_geo, l_geo, d_geo, m_liq, rho_liq, k_air, U_int]
-f1 = sp.lambdify(symbs, _R_func1)
-f2 = sp.lambdify(symbs, _R_func2)
-```
-
-```{python}
+#| jupyter: {source_hidden: true}
 %%md
 ## Introduction
 
 When pouring a molten material in between metallic plates to promote fast cooling during solidification, *i.e.* quenching the material, one may face filling defects. Those may arise because of the mould geometry or simply because material instantly solidifies in contact with the walls of the container and blocks a perfect filling. Modeling the effects of imperfect filling is generally accounted for throught the introduction of thermal resistances; nonetheless, there is no general approach to derive these and free parameters are often used to calibrate models against experimental data. This note does not aim at eliminating this need, as it would be an important technical leap in the field of heat transfer simulation, but has the ambition of making the introduction of such coefficients reasoned upon the problem physics.
 
 To reach that end, we develop a reasoning for establishing (1) the equivalent thermal conductivity, and (2) the thickness of a pseudo-gap to be introduced between a molten material and a metallic mould in the simulation domain for representing non-ideal contact. It is assumed that convection in the fluid can be neglected due to the fast cooling and problem analysis is performed only in terms of heat conduction. A numerical extension is later discussed to introduce radiative effects. The problem is derived for a flat plat geometry only, as general geometries would not allow for an analytical solution and the ideas presented here can be extended to be numerically evaluated
+```
 
+```{python}
+#| jupyter: {source_hidden: true}
+%%md
 ## Symbols list
 
 The problem at hand is described in terms of an important number of symbols; for convenience and ease of following the discussion, these are introduced in this section. Other symbols may be introduced locally and explained in their scope, the following being those applicable to the whole document.
@@ -226,20 +158,22 @@ The problem at hand is described in terms of an important number of symbols; for
 - {V_liq}, {V_sol}: volume occupied by material in liquid and solid states, respectively [$\mathrm{m^{3}}$]
 - {d_geo}, {l_geo}, {h_geo}: geometric dimensions of empty mould, thickness, width, depth, respectivelly [$\mathrm{m}$]
 - {d}, {l}, {h}: auxiliary dimensions (analogous to the above), thickness, width, depth, respectivelly [$\mathrm{m}$]
-- {m_liq}: mass of material effectivelly pourred in the mould [$\mathrm{kg}$]
+- {m_liq}, {m_liq_max}: mass of material effectivelly pourred in the mould and its capacity [$\mathrm{kg}$]
 - {k_air}, {k_mat}: thermal conductivities of air and material, respectivelly [$\mathrm{W\;m^{-1},K^{-1}}$]
-- {U_int}: pseudo-convective coefficient for solid interface, discussed later [$\mathrm{W\;m^{-2},K^{-1}}$]
+- {k_eff}: effective thermal conductivity of the mean gap between material and mould [$\mathrm{W\;m^{-1},K^{-1}}$]
 - {d_def}: local thickness of plate in a defective location [$\mathrm{m}$]
 - {Phi}: effective volume fraction occupied by molten material [dimensionless]
 - {phi}: fraction of width {l_geo} where plate has thickness {d_geo} [dimensionless]
+```
 
+```{python}
+#| jupyter: {source_hidden: true}
+%%md
 ## Fundamental concepts
 
 Before developing the full framework we will shortly discuss the relationships used more generally for computing the solidification shrinkage of a material. We stick to the already defined symbols, so calculations can proceed in a straightforward manner without new definitions.
 
-<div style="border-left: 4px solid #4a90e2; padding: 0.5em 1em;">
-<strong>Approach of fractional filling</strong>
-In the present we are dealing with imperfect mould filling, so {V_liq} is less than the geometric mould volume ${ltx(h_geo):s}{ltx(l_geo):s}{ltx(d_geo):s}$, so the filling fraction is defined as
+**Fractional filling:** In the present we are dealing with imperfect mould filling, so {V_liq} is less than the geometric mould volume ${ltx(h_geo):s}{ltx(l_geo):s}{ltx(d_geo):s}$, so the filling fraction is defined as
 
 $$
 {ltx(Phi):s}=\frac{{ltx(V_liq):s}}{{ltx(h_geo):s}{ltx(l_geo):s}{ltx(d_geo):s}}
@@ -258,15 +192,12 @@ $$
 \qquad\text{and}\qquad
 {ltx(Phi):s}=\frac{{ltx(m_liq):s}}{{ltx(rho_liq):s}{ltx(h_geo):s}{ltx(l_geo):s}{ltx(d_geo):s}}
 $$
-</div>
-<br>
+```
 
----
-
-<div style="border-left: 4px solid #4a90e2; padding: 0.5em 1em;">
-<strong>Solidification shrinkage</strong>
-
-During solidification {m_liq} is conserved, so one can write 
+```{python}
+#| jupyter: {source_hidden: true}
+%%md
+**Solidification shrinkage:** During solidification {m_liq} is conserved, so one can write 
 
 $$
 {ltx(m_liq):s} = {ltx(rho_liq):s}{ltx(V_liq):s} = {ltx(rho_sol):s}{ltx(V_sol):s}
@@ -293,12 +224,73 @@ from which one identifies the coefficient $\alpha$
 $$
 \alpha = \left(\frac{{ltx(rho_liq):s}}{{ltx(rho_sol):s}}\right)^{1/3}
 $$
-</div>
-<br>
+```
 
+```{python}
+#| jupyter: {source_hidden: true}
+# Vertical cross-section of the mould:
+_A_cross = h_geo * l_geo
+
+# Geometric volume of the mould
+_V_geo = _A_cross * d_geo
+
+# Volume of molten fluid:
+_V_liq = m_liq / rho_liq
+
+# Mean thickness of plate over width:
+_d_mean = _V_liq / _A_cross
+
+# Total volume computed from mean thickness:
+_V_tot1 = _d_mean * h_geo * l_geo
+```
+
+```{python}
+#| jupyter: {source_hidden: true}
+# Total volume computed from contact/defect zones:
+_l1 = phi * l_geo  # --> Perfect contact width
+_l2 = l_geo - _l1  # --> Gap zone width
+
+_V_fill = _l1 * h_geo * d_geo
+_V_def  = _l2 * h_geo * d_def
+_V_tot2 = _V_fill + _V_def
+
+# Thickness of plate over defective region:
+_d_def = sp.solve(_V_tot1 - _V_tot2, d_def)[0]
+
+# Air gap thickness in defective region:
+_d_air = (d_geo - _d_def) / 2
+
+# Upper bound of complete coverage:
+_phi_max = sp.solve(_d_def, phi)[0]
+
+# --- COMPOSE FUNCTIONS
+
+_arg_phi_max = [v_m_liq, v_rho_liq, v_h_geo, v_l_geo, v_d_geo]
+_sym_phi_max = [m_liq, rho_liq, h_geo, l_geo, d_geo]
+_sym_d       = _sym_phi_max + [phi]
+
+_f_phi_max   = sp.lambdify(_sym_phi_max, _phi_max)
+_f_d_def     = sp.lambdify(_sym_d, _d_def)
+_f_d_air     = sp.lambdify(_sym_d, _d_air)
+
+def eval_phi_max():  return _f_phi_max(*_arg_phi_max)
+def eval_d_def(phi): return _f_d_def(*_arg_phi_max, phi)
+def eval_d_air(phi): return _f_d_air(*_arg_phi_max, phi)
+
+# --- EVALUATE FUNCTIONS FOR PLOTTING
+
+v_phi_max   = eval_phi_max()
+v_arr_phi   = np.linspace(0.0, v_phi_max, 100)
+v_arr_d_def = eval_d_def(v_arr_phi)
+v_arr_d_air = eval_d_air(v_arr_phi)
+```
+
+```{python}
+#| jupyter: {source_hidden: true}
+%%md
 ## Statistical approach
 
-For developing the statistical approach, we start by assuming that a over a fraction {phi} of the width {l_geo} there is perfect contact between fluid and the mould, *i.e.* the width of the plate is {d_geo} in that region; the complement (1-{phi}){l_geo} has thickness {d_def}. The volume of the perfect filled region is
+For developing the statistical approach, we start by assuming that a over a fraction {phi} of the width {l_geo} there is perfect contact between fluid and the mould, *i.e.* the thickness of the molten plate is {d_geo} in that region; the complement (1-{phi}){l_geo} has thickness {d_def}. The volume of the perfect filled region is
 
 $$
 V_{fill} = {ltx(phi):s}{}{ltx(l_geo):s}{ltx(h_geo):s}{ltx(d_geo):s}
@@ -322,353 +314,323 @@ $$
 d_{air} = \frac{{ltx(d_geo):s}-{ltx(d_def):s}}{2} = {ltx(_d_air):s}
 $$
 
+This thickness provides the baseline for the evaluation of the global thermal resistance of the contact.
+```
+
+```{python}
+#| jupyter: {source_hidden: true}
+%%md
+Below we display the thickness of the plate in terms of {phi} over its domain. Here we observe that ${ltx(d_def):s}(0)$ equals the mean plate thickness and decreases up to its vanishing point (where the plate is replaced by air, meaning that the opposite faces of the mould can see each other).
+```
+
+```{python}
+#| jupyter: {source_hidden: true}
+p = plot2d(v_arr_phi, 1000 * v_arr_d_def, color="k")
+p.axes[0].set_xlabel(r"$\phi$")
+p.axes[0].set_ylabel(rf"${ltx(d_def)}$ [mm]")
+p.axes[0].axvline(v_phi_max, color="r")
+p.resize(6, 5)
+pass
+```
+
+```{python}
+#| jupyter: {source_hidden: true}
+%%md
+Converselly, the air gap increases from its minimum (average value) to half-thickness of the plate:
+```
+
+```{python}
+#| jupyter: {source_hidden: true}
+p = plot2d(v_arr_phi, 1000 * v_arr_d_air, color="k")
+p.axes[0].set_xlabel(r"$\phi$")
+p.axes[0].set_ylabel(r"$d_{air}$ [mm]")
+p.axes[0].axvline(v_phi_max, color="r")
+p.resize(6, 5)
+pass
+```
+
+```{python}
+#| jupyter: {source_hidden: true}
+# Contributions to the air-melt pair
+_Ra = _d_def / (2 * _l2 * h_geo * k_mat)
+_Rb = _d_air / (1 * _l2 * h_geo * k_air)
+
+# Parallel terms:
+_R1 = sp.simplify(_Ra + _Rb)
+_R2 = d_geo / (2 * _l1 * h_geo * k_mat)
+
+# (half) system equivalent resistance:
+_R_eq = ((1 / _R1) + (1 / _R2))**(-1)
+_R_eq = sp.simplify(_R_eq).factor(phi)
+
+# --- COMPOSE FUNCTIONS
+
+# set(s for e in [_Ra, _Rb, _R2] for s in e.free_symbols)
+_arg_R = [v_m_liq, v_k_mat, v_k_air, v_rho_liq, v_h_geo, v_l_geo, v_d_geo]
+_sym_R = [  m_liq,   k_mat,   k_air,   rho_liq,   h_geo,   l_geo,   d_geo, phi]
+
+_f_Ra    = sp.lambdify(_sym_R, _Ra)
+_f_Rb    = sp.lambdify(_sym_R, _Rb)
+_f_R1    = sp.lambdify(_sym_R, _R1)
+_f_R_eq  = sp.lambdify(_sym_R, _R_eq)
+
+def eval_Ra(phi):   return _f_Ra(*_arg_R, phi)
+def eval_Rb(phi):   return _f_Rb(*_arg_R, phi)
+def eval_R1(phi):   return _f_R1(*_arg_R, phi)
+def eval_R_eq(phi): return _f_R_eq(*_arg_R, phi)
+def eval_R_avg():   return _f_R_avg(*_arg_R)
+
+# --- EVALUATE FUNCTIONS FOR PLOTTING
+
+v_phi_max   = eval_phi_max()
+v_arr_phi   = np.linspace(0.0, v_phi_max, 100)
+v_arr_Ra    = eval_Ra(v_arr_phi)
+v_arr_Rb    = eval_Rb(v_arr_phi)
+v_arr_R1    = eval_R1(v_arr_phi)
+v_arr_R_eq  = eval_R_eq(v_arr_phi)
+```
+
+```{python}
+#| jupyter: {source_hidden: true}
+%%md
+So far one cannot to determine the effective thermal conductance of the melt–mould interface, as a free parameter {phi} remains in the formulation. In what follows we focus on finding the mean contact resistivity, as the real contact geometry is unknown and inherently irregular. A statistical description of the contact surface is therefore required to obtain a meaningful equivalent conductance, what implies integration of the resistivities of the estimated lengths of contact.
+
+For the defective region composed of a layer of air and the half-thickness of the molten plate we have:
+
+$$
+R_{1} = R_{air} + R_{melt} = {ltx(_R1):s}
+$$
+
+This function and its different contributions is depicted below. Over the whole range the behavior is dominated by air resistance contribution (notice the log-scale).
+```
+
+```{python}
+#| jupyter: {source_hidden: true}
+p = plot2d(v_arr_phi, v_arr_R1, color="k", label="Total")
+p.axes[0].plot(v_arr_phi, v_arr_Ra, label="Melt contribution")
+p.axes[0].plot(v_arr_phi, v_arr_Rb, label="Air contribution")
+p.axes[0].set_yscale("log")
+p.axes[0].set_xlabel(r"$\phi$b")
+p.axes[0].set_ylabel(r"$R_{1}$ [$\mathrm{KW^{-1}}$]")
+p.axes[0].axvline(v_phi_max, color="r")
+p.axes[0].legend(loc=2, fontsize="small")
+p.resize(6, 5)
+pass
+```
+
+```{python}
+#| jupyter: {source_hidden: true}
+%%md
+For the direct contact between the molten material and mould we have
+
+$$
+R_{2} = {ltx(_R2):s}
+$$
+
+Notice that this function has a singularity for ${ltx(phi):s}=0$. Nonetheless, that poses no problem for the evaluation of the overall system thermal resistance as these modes of heat transfer act in parallel, and the global resistance is given as
+
+$$
+R_{eq} = \left(\frac{1}{R_1}+\frac{1}{R_2}\right)^{-1} = {ltx(_R_eq):s}
+$$
+
+The evaluation of this function over is domain is provided below; for low values of {phi} the resistance grows quickly as the system is limited by air gap conduction and its value decreases to its lowest level at the maximum allowed contact.
+```
+
+```{python}
+#| jupyter: {source_hidden: true}
+p = plot2d(v_arr_phi, v_arr_R_eq, color="k", label="Total")
+p.axes[0].set_xlabel(r"$\phi$")
+p.axes[0].set_ylabel(r"$R_{eq}$ [$\mathrm{KW^{-1}}$]")
+p.axes[0].axvline(v_phi_max, color="r")
+# p.axes[0].legend(loc=2, fontsize="small")
+p.resize(6, 5)
+pass
+```
+
+```{python}
+#| jupyter: {source_hidden: true}
+_num, _den = _R_eq.as_numer_denom()
+_num = sp.poly(_num, phi)
+_den = sp.poly(_den, phi)
+
+_a0 = _num.coeff_monomial(1)
+_a1 = _num.coeff_monomial(phi)
+
+_b0 = _den.coeff_monomial(1)
+_b1 = _den.coeff_monomial(phi)
+
+assert _num - (_a1 * phi + _a0) == 0
+assert _den - (_b1 * phi + _b0) == 0
+
+_c0 = _a0 / _a1
+_d0 = _b0 / _b1
+
+assert sp.simplify(((_a1 / _b1) * (phi + _c0) / (phi + _d0)).expand() - _num/_den) == 0
+```
+
+```{python}
+#| jupyter: {source_hidden: true}
+%%md
+Please notice that the previous expression is in fact a simple function of {phi} which can be expressed in a more convenient form as
+
+$$
+\begin{aligned}
+R_{eq} &= \frac{a_1\phi+a_0}{b_1\phi+b_0}
+\\[12pt]
+a_0 &= {ltx(_a0):s} \\[12pt]
+a_1 &= {ltx(_a1):s} \\[12pt]
+b_0 &= {ltx(_b0):s} \\[12pt]
+b_1 &= {ltx(_b1):s}
+\end{aligned}
+$$
+```
+
+```{python}
+#| jupyter: {source_hidden: true}
+%%md
+For proceeding with its integration we can rewrite this function as 
+
+$$
+\begin{aligned}
+R_{eq} &= \frac{a_1}{b_1}\frac{\phi+c_0}{\phi+d_0} = \frac{a_1}{b_1}\left(1 + \frac{c_0 - d_0}{\phi+d_0}\right)
+\\[12pt]
+c_0 &= {ltx(_a0/_a1):s} \\[12pt]
+d_0 &= {ltx(_b0/_b1):s}
+\end{aligned}
+$$
+```
+
+```{python}
+#| jupyter: {source_hidden: true}
+%%md
+<div style="border-left: 4px solid #4a90e2; padding: 0.5em 1em;">
+<strong>A note about integration limits</strong>
 An important subtlety that needs to be discussed here and will impact the averaging process. Notice that nothing has been said about the domain of {phi}. As we assume a defective filling it is always possible to concentrate the molten material in the center of the mould without touching the walls, so its lower bound is zero; on the other hand, there is a maximum width that can be filled so that the whole thickness is occupied and that happens when {d_def} vanishes. It is obvious that under this constraint we should find a value that matches the fractional filling inside the mould:
 
 $$
 \phi_{max} = {ltx(_phi_max):s} = {ltx(Phi):s}
 $$
+</div>
+<br>
+```
 
----
-
-So far one cannot to determine the effective thermal conductance of the melt–mould interface, as a free parameter {phi} remains in the formulation. In what follows we focus on finding the mean contact resistivity, as the real contact geometry is unknown and inherently irregular. A statistical description of the contact surface is therefore required to obtain a meaningful equivalent conductance, what implies integration of the resistivities of the estimated lengths of contact.
-
-For the defective zone (filled with air) that can be expressed as
-
-$$
-R_{air} = \frac{d_{air}}{k_{air}A_{air}} = {ltx(_R_air):s}
-$$
-
-and for the direct contact between the molten material and mould we have:
-
-$$
-R_{con} = {ltx(_R_cnv):s}
-$$
-
-As these modes of heat transfer act in parallel, the global resistance is given as:
-
-$$
-R_{eq} = {ltx(_R_eqv):s}
-$$
-
-This expression can be broken down into a more understandable format as
-
-$$
-\begin{aligned}
-R_{eq} &= {ltx(_R_eq1):s}
-\\[12pt]
-{ltx(C1):s} &= {ltx(rho_liq):s}\left({ltx(d_geo):s} - d_{mean}\right) = {ltx(_C1):s} 
-\\[12pt]
-{ltx(a):s} &= {ltx(_a):s}
-\\[12pt]
-{ltx(b):s} &= {ltx(_b):s}
-\\[12pt]
-{ltx(c):s} &= {ltx(_c):s}
-\end{aligned}
-$$
-
-Splitting the partial fractions we rearrange the above into an easily integrable function
-
-$$
-\begin{aligned}
-R_{eq} &= {ltx(_R_eq2):s}
-\\[12pt]
-&= {ltx(_A_tmp):s}\left({ltx(_R_eq2_part):s}\right)
-\end{aligned}
-$$
-
-The average value is found by integration as
+```{python}
+#| jupyter: {source_hidden: true}
+%%md
+Its integration is straightfoward as follows
 
 $$
 \begin{aligned}
 \langle{R_{eq}}\rangle &= \frac{1}{\phi_{max}}\int_{0}^{\phi_{max}}
-{ltx(_A_tmp):s}\left({ltx(_R_eq2_part):s}\right)d\phi
+\frac{a_1}{b_1}\left(1 + \frac{c_0 - d_0}{\phi+d_0}\right)d\phi
 \\[12pt]
-&= \frac{1}{\phi_{max}}\frac{C_1}{\phi_1-\phi_0}
-\left[\log\left(\frac{\phi - \phi_1}{\phi-\phi_0}\right)\right]_{0}^{\phi_{max}}
+&=\frac{a_1}{b_1}+\frac{a_1}{b_1}\frac{c_0 - d_0}{\phi_{max}}\int_{0}^{\phi_{max}}\frac{1}{\phi+d_0}d\phi
 \\[12pt]
-&= \frac{1}{\phi_{max}}\frac{C_1}{\phi_1-\phi_0}
-\log\left(\frac{\phi_0}{\phi_1}\frac{\phi_{max}-\phi_1}{\phi_{max}-\phi_0}\right)
+&=\frac{a_1}{b_1}\left[1+\frac{c_0 - d_0}{\phi_{max}}\log\left(1+\frac{\phi_{max}}{d_0}\right)\right]
 \end{aligned}
 $$
 ```
 
-
 ```{python}
-R_eval1 = f1(v_h_geo, v_l_geo, v_d_geo, v_m_liq, v_rho_liq, v_k_air, v_U_int)
-R_eval2 = f2(v_h_geo, v_l_geo, v_d_geo, v_m_liq, v_rho_liq, v_k_air, v_U_int)
-```
-
-```{python}
-# kappa_eval = (d_geo - d_bar_eval) / (2 * R_avg * A_cross)
-v_A_cross = v_h_geo * v_l_geo
-v_d_mean = v_m_liq / (v_rho_liq * v_A_cross)
-(v_d_geo - v_d_mean) / (2 * R_eval2 * v_A_cross)
-```
-
-```{python}
-_Delta_poly = sp.poly(_Delta, U_int)
-_Delta_poly.coeff_monomial(1)
-_Delta_poly.coeff_monomial(U_int)
-_Delta_poly.coeff_monomial(U_int**2)
-```
-
-```{python}
-sp.solve(_Delta, U_int)[1]
-```
-
-```{python}
-_Delta_poly
-```
-
-
-
-```{python}
-# Density [kg/m³]
-RHO_LIQ = 3500
-RHO_SOL = 4665
-
-# Dimensions [m]
-val_h = 0.150
-val_l = 0.130
-val_d = 0.004
-
-# Mass [kg]
-val_m = 0.236
-
-# Thermal conductivity of gap fluid [W/m-K]
-K_COEF = 0.025
-
-# Pseudo heat transfer coefficient of contact [W/m²-K]:
-U_COEF = 1.0e+03
-```
-
-```{python}
-# Geometric volume [cm³]
-val_V_geo = val_h * val_l * val_d
-
-# Geometric mass [g]
-val_m_geo = RHO_LIQ * val_V_geo
-
-# Linear defect and solidification shrinkage factors:
-val_k_dim = val_m / val_m_geo
-val_k_sol = (RHO_LIQ / RHO_SOL)**(1/3)
-
-# The geometry of the liquid:
-val_h_l = val_h
-val_l_l = val_l
-val_d_l = val_d * val_k_dim
-
-# The geometry of the solid:
-val_h_s = val_h_l * val_k_sol
-val_l_s = val_l_l * val_k_sol
-val_d_s = val_d_l * val_k_sol
-
-# Check for residual (equation correctness):
-val_res = RHO_SOL * val_h_s * val_l_s * val_d_s - val_m
-```
-
-```{python}
-# -----------------------------------------------------------------
-
-SYMBOLS = []
-
-def sym(names):
-    symbols = []
-    names = names.split(" ")
-    for name in names:
-        if name in SYMBOLS:
-            raise ValueError(f"Symbol '{name}' already exists.")
-        symbols.append(sp.Symbol(name))
-
-    SYMBOLS.extend(symbols)
-
-    if len(symbols) == 1:
-        return symbols[0]
-    return symbols
-
-
-def lam(expr, symbols=None):
-    if symbols is None:
-        symbols = list(expr.free_symbols)
-    return sp.lambdify(symbols, expr)
-
-# -----------------------------------------------------------------
-
-# Mass of molten material:
-m_liq = sym("m")
-
-# Densities:
-rho_liq, rho_sol = sym("rho_l rho_s")
-
-# Geometric dimensions:
-d_geo, l_geo, h_geo = sym("d l h")
-
-# Transport coefficients:
-kappa, U = sym("kappa U")
-
-# -----------------------------------------------------------------
-
-# Fraction of defective width:
-phi = sym("phi")
-
-# Thickness of plate over defect:
-delta =  sym("delta")
-
-# Mean *defective plate thickness*:
-# d_bar = sym("d_bar")
-
-# -----------------------------------------------------------------
-
-# Vertical cross-section of the mould:
-A_cross = h_geo * l_geo
-
-# Geometric volume of mould
-V_geo = A_cross * d_geo
-
-# Volume of molten fluid:
-V_liq = m_liq / rho_liq
-
-# Replacement for mean thickness:
-d_bar_eval = V_liq / A_cross
-
-# Width of contact/no contact zones:
-l_1 = phi * l_geo
-l_2 = l_geo - l_1
-
-# Volume conservation constraint:
-eq = l_1 * d_geo + l_2 * delta - l_geo * d_bar_eval
-
-# *delta* in terms of known quantities:
-delta_eval = sp.solve(eq, delta)[0]
-
-# Air gap thickness for resistance computation:
-delta_air = (d_geo - delta_eval)/2
-
-# ...and in terms of known quantities:
-delta_air_eval = sp.simplify(delta_air.subs({"d_bar": d_bar_eval}))
-
-# Minimum fraction of width to be in *full contact*:
-phi_min = sp.solve(delta_eval, phi)[0]
-
-# -----------------------------------------------------------------
-
-# Relevant areas for resistance computation:
-A_gap = l_2 * h_geo
-A_cnv = A_cross - A_gap
-
-# Thermal resistances and equivalent resistance:
-R_gap = sp.simplify(delta_air / (kappa * A_gap))
-R_con = sp.simplify(1 / (U * A_cnv))
-R_eqv = sp.simplify(1 / ((1 / R_gap) + (1 / R_con)))
-
-# Dimensionless equivalent resistance:
-C1 = A_cross/(d_geo * A_cross * rho_liq - m_liq)
-r_eqv = C1 * sp.apart(R_eqv, phi)
-
-# Factorization of *r_eqv*:
-# _, r_eqv_den = sp.fraction(sp.together(r_eqv))
-_, r_eqv_den = r_eqv.as_numer_denom()
-phi0, phi1 = sp.solve(r_eqv_den, phi)
-
-A = sp.simplify(1 / sp.diff(r_eqv_den, phi).subs(phi, phi0))
-B = sp.simplify(1 / sp.diff(r_eqv_den, phi).subs(phi, phi1))
-assert sp.simplify(A + B) == 0
-
-# Convert back to *R_eqv*:
-A_prime = A / C1
-B_prime = -A_prime
-R_eqvA = sp.simplify(A_prime / (phi - phi0))
-R_eqvB = sp.simplify(B_prime / (phi - phi1))
-R_eqv_factored = sp.simplify(R_eqvA + R_eqvB)
-
-# Checking the factorization:
-R_eqv_factorization_check = sp.simplify(R_eqv - R_eqv_factored)
-assert R_eqv_factorization_check == 0
-
-# -----------------------------------------------------------------
-
-limits = (phi, 0, phi_min)
-R_1 = sp.integrate(1/(phi-phi0), limits)
-R_2 = sp.integrate(1/(phi-phi1), limits)
-R_avg = A_prime * (R_1 - R_2)
-R_avg /= (phi_min)
-
-kappa_eval = (d_geo - d_bar_eval) / (2 * R_avg * A_cross)
-
-# -----------------------------------------------------------------
-
-selected = [rho_liq, U, kappa, m_liq, d_geo, l_geo, h_geo]
-args = (RHO_LIQ, U_COEF, K_COEF, val_m, val_d, val_l, val_h)
-
-fn_phi_min  = lam(phi_min, symbols=selected)
-fn_phi0     = lam(phi0, symbols=selected)
-fn_phi1     = lam(phi1, symbols=selected)
-fn_A_prime  = lam(A_prime, symbols=selected)
-fn_d_bar    = lam(d_bar_eval, symbols=selected)
-
-val_phi_min = fn_phi_min(*args)
-val_phi0    = fn_phi0(*args)
-val_phi1    = fn_phi1(*args)
-val_A_prime = fn_A_prime(*args)
-val_d_bar   = fn_d_bar(*args)
-
-# -----------------------------------------------------------------
-
-# ratio0 = (1 - val_phi0) / (val_phi_min - val_phi0)
-# ratio1 = (1 - val_phi1) / (val_phi_min - val_phi1)
-# R_avg_manual = val_A_prime * (sp.log(ratio0) - sp.log(ratio1))
-# R_avg_manual /= (1 - val_phi_min)
-
-fn_R_avg = lam(R_avg, symbols=selected)
-R_avg_symbolic = fn_R_avg(*args)
-# assert np.isclose(R_avg_manual, R_avg_symbolic)
-
-# -----------------------------------------------------------------
-
-val_R_avg = R_avg_symbolic
-val_gap_avg = (val_d - val_d_bar) / 2
-
-kappa_use = val_gap_avg / (R_avg_symbolic * val_h * val_l)
-```
-
-```{python}
-kappa_use, val_gap_avg
-```
-
-```{python}
+#| jupyter: {source_hidden: true}
 %%md
-- A mass {m_liq} of a liquid material of density {rho_liq} was poured in a mould; the volume occupied by such fluid is {V_liq}.
-
-- Filling is imperfect and only a fraction $\Phi=V_{{l}}/V_{{0}}$ of the geometric volume $V_{{0}}={ltx(V_geo):s}$ of the mould is replenished with the molten material.
+This is the overall resistance of the system; for the gap alone we have
 
 $$
-\Phi={ltx(V_liq/V_geo):s}
+\begin{aligned}
+\langle{R_{gap}}\rangle &= \langle{R_{eq}}\rangle-R_{liq}
+\\[12pt]
+&= \langle{R_{eq}}\rangle-\frac{d_{mean}}{{ltx(k_mat):s}{ltx(l_geo):s}{ltx(h_geo):s}}
+\end{aligned}
 $$
 
-- Assuming the filling defect happens only over the thickness, *i.e.* it is not isotropic, then the mean thickness $d_{bar}$ of the molten material is
+The geometric gap artificially introduced in the domain is by convention half the clearance between the mould walls distant apart {d_geo} from each other, and the mean plate thickness {d_mean}; thus, its effective thermal conductivity is
 
 $$
-d_{bar} = \dfrac{V_{l}}{A_{c}}
-%
-\quad\text{where}\quad
-%
-A_{c} = {ltx(A_cross):s}
-%
-\quad\implies\quad
-%
-d_{bar} = {ltx(d_bar_eval):s}
+{ltx(k_eff):s}=\frac{{ltx(d_geo):s}-{ltx(d_mean):s}}{2{ltx(_A_cross):s}\langle{R_{gap}}\rangle}
 $$
 
----
-
-A similar reasoning applies to the solidification shrinkage, but in this case we have no arguments for justifying a
-non-isotropic behavior, thus $n=3$. Using the available values for the different variables we establish the following:
-
-- The mould geometric dimensions are {val_h:.0f} cm x {val_l:.0f} cm x {10*val_d:.1f} mm, be a total empty volume of {val_V_geo:.1f} cm³
-
-- That could comport {val_m_geo:.0f} g of a liquid with density {RHO_LIQ:.2f} g/cm³, against the measured {val_m:.0f} g ({100*val_m/val_m_geo:.1f}%wt of capacity).
-
-- Thus, the molten material dimensions where approximately {val_h:.0f} cm x {val_l_l:.0f} cm x {10*val_d_l:.2f} mm due to under-filling over thickness.
-
-- Upon solidification shrinkage is isotropic, and the final dimensions of  {val_h_s:.2f} cm x {val_l_s:.2f} cm x {10*val_d_s:.2f} mm are computed.
+This closes the problem as stated in the introduction and provides an analytical estimate of the value ot be used.
 ```
+
+```{python}
+#| jupyter: {source_hidden: true}
+# Term inside the log:
+_alog = 1 + _phi_max / _d0
+
+# Problems with log?
+# phi_min = 0.0
+# phi_max = _phi_max
+# _R_eq_int = sp.integrate(_R_eq, (phi, phi_min, phi_max))
+# _R_eq_avg = _R_eq_int / (phi_max - phi_min)
+_R_eq_avg = (1 + ((_c0 - _d0)/_phi_max) * sp.log(_alog)) * (_a1/_b1)
+_R_gap    = _R_eq_avg - _d_mean/(k_mat * _A_cross)
+
+# --- COMPOSE FUNCTIONS
+
+_arg_f_alog = [v_m_liq, v_k_mat, v_k_air, v_rho_liq, v_h_geo, v_l_geo, v_d_geo]
+_sym_f_alog = [  m_liq,   k_mat,   k_air,   rho_liq,   h_geo,   l_geo,   d_geo]
+
+_f_alog     = sp.lambdify(_sym_f_alog, _alog)
+_f_R_eq_avg = sp.lambdify(_sym_f_alog, _R_eq_avg)
+_f_R_gap    = sp.lambdify(_sym_f_alog, _R_gap)
+
+def eval_alog():     return _f_alog(*_arg_f_alog)
+def eval_R_eq_avg(): return _f_R_eq_avg(*_arg_f_alog)
+def eval_R_gap():    return _f_R_gap(*_arg_f_alog)
+
+v_R_eq_avg = eval_R_eq_avg()
+v_R_gap    = eval_R_gap()
+
+# v_V_tot   = v_d_geo * v_h_geo * v_l_geo
+v_A_cross = v_h_geo * v_l_geo
+v_d_mean  = v_m_liq / (v_rho_liq * v_A_cross)
+v_d_air   = 0.5 * (v_d_geo - v_d_mean)
+v_Phi     = v_d_mean / v_d_geo
+
+v_k_eff = v_d_air / (v_R_gap * v_A_cross)
+
+v_gamma = v_rho_liq / v_rho_sol
+v_alpha = v_gamma**(1/3)
+
+v_d_final = v_d_mean * v_alpha
+v_h_final = v_h_geo * v_alpha
+v_l_final = v_l_geo * v_alpha
+```
+
+```{python}
+#| jupyter: {source_hidden: true}
+%%md
+## Application case
+
+In what follows let's consider a mould of dimensions ${1000*v_h_geo:.0f}\times{1000*v_l_geo:.0f}\times{1000*v_d_geo:.0f}$ mm where a mass of {1000*v_m_liq:.0f} g of a material of density {v_rho_liq:.0f} kg/m³ is pourred. The filling rate of the mould is thus ${ltx(Phi):s}={100*v_Phi:.1f}$%, what is equivalent to saying that the mean thickness of the molten fluid is {1000*v_d_mean:.2f} mm and the geometric clearance {1000*v_d_air:.2f} mm.
+
+Assuming air thermal conductivity to be {1000*v_k_air:.0f} $\mathrm{mW{}m^{-1}K^{-1}}$ and that of the material {v_k_mat:.0f} $\mathrm{W{}m^{-2}K^{-1}}$, the mean thermal resistance of the interface evaluates to
+
+$$
+\langle{R_{gap}}\rangle = {1000*v_R_gap:.1f}\;\mathrm{mKW^{-1}}
+\implies
+{ltx(k_eff):s} = {v_k_eff:.2f}\;\mathrm{W{}m^{-1}K^{-1}}
+$$
+
+Regarding final dimensions, the molten plate mean thickness {1000*v_d_mean:.2f} mm is expected to retract by {100*(1-v_alpha):.1f}% over each direction (a volume shrinkage of {100*(1 - v_gamma):.1f}%), producing a final solid slab of dimensions ${1000*v_h_final:.0f}\times{1000*v_l_final:.0f}\times{1000*v_d_final:.2f}$ mm. As heat is extracted by the mould, shrinkage is expected to be manifested as the formation of voids in the core of material, thus not affecting the contact heat transfer.
+```
+
+```{python}
+df = pd.read_csv("model/data/k.dat", sep=r"\s+", header=None)
+v_T = df[0].to_numpy()
+v_k = df[1].to_numpy()
+
+def k_fit(t, kinf, k0, a=0.028):
+    return (k0 - kinf) - kinf * np.log(1 + a * (t - 298.15))
+
+f = 15 - 3 * sp.log(1 + 0.028 * (T - 298.15))
+
+p = plot2d(v_T, k)
+p.axes[0].plot(v_T, k_fit(v_T, kinf=3, k0=18), "o")
+p.axes[0].set_xlabel(r"Temperature [$\mathrm{K}$]")
+p.axes[0].set_ylabel(r"Thermal conductivity [$\mathrm{W\,m^{-1}\,K^{-1}}$]")
+pass
+```
+
+
