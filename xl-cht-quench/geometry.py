@@ -16,7 +16,7 @@ w = 0.065
 d = 0.0020
 
 # Gap between the quenched zone and the mould
-g = 0.0002
+g = 0.27e-03
 
 # Characteristic size for the mesh elements:
 size_d = d / 4

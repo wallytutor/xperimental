@@ -564,12 +564,12 @@ _alog = 1 + _phi_max / _d0
 # _R_eq_int = sp.integrate(_R_eq, (phi, phi_min, phi_max))
 # _R_eq_avg = _R_eq_int / (phi_max - phi_min)
 _R_eq_avg = (1 + ((_c0 - _d0)/_phi_max) * sp.log(_alog)) * (_a1/_b1)
-_R_gap    = _R_eq_avg - _d_mean/(k_mat * _A_cross)
+_R_gap    = _R_eq_avg - _d_mean / (k_mat * _A_cross)
 
 # --- COMPOSE FUNCTIONS
 
-_arg_f_alog = [v_m_liq, v_k_mat, v_k_air, v_rho_liq, v_h_geo, v_l_geo, v_d_geo]
-_sym_f_alog = [  m_liq,   k_mat,   k_air,   rho_liq,   h_geo,   l_geo,   d_geo]
+_arg_f_alog = [v_k_mat, v_m_liq, v_k_air, v_rho_liq, v_h_geo, v_l_geo, v_d_geo]
+_sym_f_alog = [  k_mat,   m_liq,   k_air,   rho_liq,   h_geo,   l_geo,   d_geo]
 
 _f_alog     = sp.lambdify(_sym_f_alog, _alog)
 _f_R_eq_avg = sp.lambdify(_sym_f_alog, _R_eq_avg)
@@ -617,20 +617,56 @@ Regarding final dimensions, the molten plate mean thickness {1000*v_d_mean:.2f} 
 ```
 
 ```{python}
+#| jupyter: {source_hidden: true}
+%%md
+If fact, as one might expect, the thermal conductivity of the pourred material changes with temperature; below we provide the raw data.
+```
+
+```{python}
+#| jupyter: {source_hidden: true}
 df = pd.read_csv("model/data/k.dat", sep=r"\s+", header=None)
 v_T = df[0].to_numpy()
 v_k = df[1].to_numpy()
 
-def k_fit(t, kinf, k0, a=0.028):
-    return (k0 - kinf) - kinf * np.log(1 + a * (t - 298.15))
+k_low = 18
+k_inf = 3
+coef  = 0.028
 
-f = 15 - 3 * sp.log(1 + 0.028 * (T - 298.15))
+def k_fit(t):
+    return (k_low - k_inf) - k_inf * np.log(1 + coef * (t - 298.15))
 
-p = plot2d(v_T, k)
-p.axes[0].plot(v_T, k_fit(v_T, kinf=3, k0=18), "o")
+def eval_R_gap_T(T, k):
+    return _f_R_gap(k, *_arg_f_alog[1:])
+    
+# def eval_R_gap_T(T):
+#     return _f_R_gap(k_fit(T), *_arg_f_alog[1:])
+
+p = plot2d(v_T, v_k, color="k")
+# p.axes[0].plot(v_T, k_fit(v_T), "ro")
 p.axes[0].set_xlabel(r"Temperature [$\mathrm{K}$]")
 p.axes[0].set_ylabel(r"Thermal conductivity [$\mathrm{W\,m^{-1}\,K^{-1}}$]")
+p.axes[0].set_xlim(200, 2500)
 pass
 ```
 
+```{python}
+#| jupyter: {source_hidden: true}
+%%md
+By applying our approach we can finally translate it into the gap effective property over the whole temperature range:
+```
 
+```{python}
+#| jupyter: {source_hidden: true}
+# df[2] = v_k_eff = v_d_air / (eval_R_gap_T(v_T) * v_A_cross)
+df[2] = v_k_eff = v_d_air / (eval_R_gap_T(v_T, v_k) * v_A_cross)
+
+with open("model/data/k_gap.dat", "w") as fp:
+    for i, row in df.iterrows():
+        fp.write(f"{row[0]:>9.2f} {row[2]:>9.4f}\n")
+
+p = plot2d(v_T, v_k_eff, color="k")
+p.axes[0].set_xlabel(r"Temperature [$\mathrm{K}$]")
+p.axes[0].set_ylabel(r"Thermal conductivity [$\mathrm{W\,m^{-1}\,K^{-1}}$]")
+p.axes[0].set_xlim(200, 2500)
+pass
+```
