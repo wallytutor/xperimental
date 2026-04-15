@@ -1,0 +1,68 @@
+cabal-version: 2.2
+
+-- This file has been generated from package.yaml by hpack version 0.38.1.
+--
+-- see: https://github.com/sol/hpack
+
+name:           xl-oxidation-kinetics
+version:        0.1.0.0
+description:    Please see the README on GitHub at <https://github.com/wallytutor/xperimental/tree/main/xl-oxidation-kinetics#readme>
+homepage:       https://github.com/wallytutor/xperimental#readme
+bug-reports:    https://github.com/wallytutor/xperimental/issues
+author:         Walter Dal&#39;Maz Silva
+maintainer:     walter.dalmazsilva.manager@gmail.com
+copyright:      2025 Walter Dal&#39;Maz Silva
+license:        BSD-3-Clause
+license-file:   LICENSE
+build-type:     Simple
+extra-source-files:
+    README.md
+    CHANGELOG.md
+
+source-repository head
+  type: git
+  location: https://github.com/wallytutor/xperimental
+  subdir: xl-oxidation-kinetics
+
+library
+  exposed-modules:
+      Lib
+  other-modules:
+      Paths_xl_oxidation_kinetics
+  autogen-modules:
+      Paths_xl_oxidation_kinetics
+  hs-source-dirs:
+      src
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints
+  build-depends:
+      base >=4.7 && <5
+  default-language: Haskell2010
+
+executable kinetics-oxidation-iron-exe
+  main-is: Main.hs
+  other-modules:
+      Paths_xl_oxidation_kinetics
+  autogen-modules:
+      Paths_xl_oxidation_kinetics
+  hs-source-dirs:
+      app
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      base >=4.7 && <5
+    , xl-oxidation-kinetics
+  default-language: Haskell2010
+
+test-suite kinetics-oxidation-iron-test
+  type: exitcode-stdio-1.0
+  main-is: Spec.hs
+  other-modules:
+      Paths_xl_oxidation_kinetics
+  autogen-modules:
+      Paths_xl_oxidation_kinetics
+  hs-source-dirs:
+      test
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      base >=4.7 && <5
+    , xl-oxidation-kinetics
+  default-language: Haskell2010
