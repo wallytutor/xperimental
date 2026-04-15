@@ -3,8 +3,16 @@ from majordome.simulation import GmshOCCModel
 from majordome.simulation import GeometricProgression
 
 #region: parameters
+# Depth of extrusion
+D0 = 0.010
+D1 = 0.120
+D2 = 0.030
+
 # Width of the domain
 L = 0.075
+
+# Width of the inertial zone
+L_inertial = 0.050
 
 # Height of the domain
 H = 0.010
@@ -95,17 +103,55 @@ with GmshOCCModel(name="domain", render=True, **options) as model:
     model.synchronize()
     #endregion: geometry
 
+    #region: geometry extension
+    # Create new baseline rectangle for lower body:
+    on1 = (0.0, -H, 0.0)
+    rn1 = model.add_rectangle(*on1, L, 2*H)
+    tags_base = model.extrude([(2, rn1)], 0, 0, D0)
+    body_base = tags_base[1]
+
+    # Move the geometry by D0 in the z direction:
+    model.translate([tag_molten, tag_gap, tag_mould], 0, 0, D0)
+    tags_molten = model.extrude([tag_molten], 0, 0, D1+D2)
+    tags_gap    = model.extrude([tag_gap],    0, 0, D1+D2)
+    tags_mould  = model.extrude([tag_mould],  0, 0, D1+D2)
+    body_molten = tags_molten[1]
+    body_gap    = tags_gap[1]
+    body_mould  = tags_mould[1]
+
+    # Create rectangle for the top inertial zone:
+    on2 = (L, -H, D0+D1)
+    rn2 = model.add_rectangle(*on2, L_inertial, 2*H)
+    tags_inertial = model.extrude([(2, rn2)], 0.0, 0, D2)
+    body_inertial = tags_inertial[1]
+
+    # # Fuse mould parts:
+    outputs = model.fuse([body_mould], [body_inertial, body_base])
+    body_mould = outputs[0][0]
+
+    model.synchronize()
+    #endregion: geometry extension
+
+    #region: repair geometry
+    model.fragment([body_molten], [body_gap])
+    model.fragment([body_gap], [body_mould])
+    model.synchronize()
+    #endregion: repair geometry
+
     #region: meshing
-    # # Identify lines for boundary conditions:
-    # bc_i_0      = [6, 7]
-    # bc_i_1      = [14, 15]
-    # bc_l_molten = [11]
-    # bc_l_gap    = [21]
-    # bc_l_mould  = [27]
-    # bc_t_molten = [12]
-    # bc_t_gap    = [22]
-    # bc_t_mould  = [29]
-    # bc_e_mould  = [24, 25, 26, 28]
+    # Identify surfaces for boundary conditions:
+    bc_in_0      = [40, 41]
+    bc_in_1      = [46, 47, 48]
+    bc_in_2      = [42]
+    bc_sx_molten = [38]
+    bc_sx_gap    = [44]
+    bc_sx_mould  = [50]
+    bc_sy_molten = [39]
+    bc_sy_gap    = [45]
+    bc_sy_mould  = [56]
+    bc_ex_molten = [43]
+    bc_ex_gap    = [49]
+    bc_ex_mould  = [51, 52, 54, 55, 57, 58, 59, 60, 61]
 
     # set_transfinite(model, bc_i_0, size_g)
     # set_transfinite(model, bc_i_1, size_g)
@@ -116,34 +162,37 @@ with GmshOCCModel(name="domain", render=True, **options) as model:
     # set_progression(model, bc_l_mould[0], size_g, size_m)
     # set_progression(model, bc_t_mould[0], size_m, size_g)
     # set_transfinite(model, bc_e_mould, size_m)
-    # model.synchronize()
+    model.synchronize()
 
-    # bounds = [
-    #     {"tags": bc_i_0,      "name": "i_molten_gap", "tag_id": 1},
-    #     {"tags": bc_i_1,      "name": "i_gap_mould",  "tag_id": 2},
-    #     {"tags": bc_l_molten, "name": "l_molten",     "tag_id": 3},
-    #     {"tags": bc_l_gap,    "name": "l_gap",        "tag_id": 4},
-    #     {"tags": bc_l_mould,  "name": "l_mould",      "tag_id": 5},
-    #     {"tags": bc_t_molten, "name": "t_molten",     "tag_id": 6},
-    #     {"tags": bc_t_gap,    "name": "t_gap",        "tag_id": 7},
-    #     {"tags": bc_t_mould,  "name": "t_mould",      "tag_id": 8},
-    #     {"tags": bc_e_mould,  "name": "e_mould",      "tag_id": 9},
-    # ]
+    bounds = [
+        {"tags": bc_in_0,      "name": "in_molten_gap",   "tag_id":  1},
+        {"tags": bc_in_1,      "name": "in_gap_mould",    "tag_id":  2},
+        {"tags": bc_in_2,      "name": "in_molten_mould", "tag_id":  3},
+        {"tags": bc_sx_molten, "name": "sx_molten",       "tag_id":  4},
+        {"tags": bc_sx_gap,    "name": "sx_gap",          "tag_id":  5},
+        {"tags": bc_sx_mould,  "name": "sx_mould",        "tag_id":  6},
+        {"tags": bc_sy_molten, "name": "sy_molten",       "tag_id":  7},
+        {"tags": bc_sy_gap,    "name": "sy_gap",          "tag_id":  8},
+        {"tags": bc_sy_mould,  "name": "sy_mould",        "tag_id":  9},
+        {"tags": bc_ex_molten, "name": "ex_molten",       "tag_id": 10},
+        {"tags": bc_ex_gap,    "name": "ex_gap",          "tag_id": 11},
+        {"tags": bc_ex_mould,  "name": "ex_mould",        "tag_id": 12},
+    ]
 
-    # zones = [
-    #     {"tags": [tag_molten[1]], "name": "molten", "tag_id": 1},
-    #     {"tags": [tag_gap[1]],    "name": "gap",    "tag_id": 2},
-    #     {"tags": [tag_mould[1]],  "name": "mould",  "tag_id": 3},
-    # ]
+    zones = [
+        {"tags": [body_molten[1]], "name": "molten", "tag_id": 1},
+        {"tags": [body_gap[1]],    "name": "gap",    "tag_id": 2},
+        {"tags": [body_mould[1]],  "name": "mould",  "tag_id": 3},
+    ]
 
-    # for entry in bounds:
-    #     model.add_physical_curve(**entry)
+    for entry in bounds:
+        model.add_physical_surface(**entry)
 
-    # for entry in zones:
-    #     model.add_physical_surface(**entry)
+    for entry in zones:
+        model.add_physical_volume(**entry)
 
-    # model.synchronize()
+    model.synchronize()
     #endregion: meshing
 
     # model.generate_mesh(dim=2)
-    # model.dump(f"model/geometry.msh")
+    # model.dump(f"geometry.msh")
