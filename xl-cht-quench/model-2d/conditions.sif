@@ -99,9 +99,23 @@ End
 Material 2
     Name = "Dummy"
 
+    ! Include "../data/rho.dat"
     Density = Variable Temperature
         Real
-            Include "../data/rho.dat"
+             200.0  1.7650
+             300.0  1.1770
+             400.0  0.8825
+             600.0  0.5883
+             800.0  0.4412
+            1000.0  0.3530
+            1200.0  0.2942
+            1400.0  0.2521
+            1600.0  0.2206
+            1800.0  0.1961
+            2000.0  0.1765
+            2200.0  0.1604
+            2400.0  0.1471
+            3000.0  0.1177
         End
 
     Emissivity = 0.90
@@ -137,9 +151,11 @@ Material 2
     ! the initial temperature of the simulation, NOT room temperature!
     Reference Temperature = $(T_MELT)
 
+    ! This should have no inertial effects related to solidification !
     Internal Energy = Variable Temperature
         Real
-            Include "data/h.dat"
+             200.0  0.0
+            3000.0  0.0
         End
 End
 
@@ -150,14 +166,20 @@ Material 3
     !-  446-stainless-steel-properties-and-key-applications
     Name = "Metal"
 
-    Density = 7800
+    Density = 7700
 
     ! Lower value for stainless steel!
     Emissivity = 0.6
 
-    Heat Conductivity = 20.0
+    Heat Conductivity = 18.0
 
-    Heat Capacity = 500
+    ! Assuming the upper temperature value !
+    Heat Capacity = Variable Temperature
+        Real
+             200.0  450.0
+             500.0  550.0
+            3000.0  550.0
+        End
 
     Youngs Modulus = 207.0e9
 
@@ -173,8 +195,9 @@ Material 3
 
     Internal Energy = Variable Temperature
         Real
-             200.0  $(7800 * 500.0 * ( 200.0 - 298.15))
-            3000.0  $(7800 * 500.0 * (3000.0 - 298.15))
+             200.0  $(7700 * 450.0 * ( 200.0 - 298.15))
+             500.0  $(7700 * 550.0 * ( 500.0 - 298.15))
+            3000.0  $(7700 * 550.0 * (3000.0 - 298.15))
         End
 End
 

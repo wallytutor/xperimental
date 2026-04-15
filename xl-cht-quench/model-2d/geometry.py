@@ -146,4 +146,4 @@ with GmshOCCModel(name="domain", render=True, **options) as model:
     #endregion: meshing
 
     model.generate_mesh(dim=2)
-    model.dump(f"model/geometry.msh")
+    model.dump(f"geometry.msh")

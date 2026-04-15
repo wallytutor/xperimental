@@ -10,14 +10,30 @@ $script:PyEnv = [PSCustomObject]@{
     Path    = "$PSScriptRoot\venv"
 }
 
-$script:MeshFile  = "$PSScriptRoot\model-$NumDimensions\geometry.msh"
-$script:ElmerMesh = "$PSScriptRoot\model-$NumDimensions\elmer"
+$script:ModelDir  = "$PSScriptRoot\model-$NumDimensions"
+$script:GmshFile  = "$script:ModelDir\geometry.py"
+$script:MeshFile  = "$script:ModelDir\geometry.msh"
+$script:ElmerMesh = "$script:ModelDir\elmer"
 $script:MergeTol  = 1.0e-05
 $script:NumProc   = 4
 
+function Push-PopLocation {
+    param(
+        [string]$Path
+    )
+    Push-Location $Path
+    try {
+        & $args[0]
+    } finally {
+        Pop-Location
+    }
+}
+
 function Invoke-ElmerGridConversion {
     if (-not (Test-Path -Path $script:MeshFile)) {
-        & python geometry.py
+        Push-PopLocation $script:ModelDir {
+            & python $script:GmshFile
+        }
     }
 
     $argumentList = @(
@@ -105,7 +121,7 @@ function Start-SimulationStep {
     param(
         [string]$SifFile
     )
-    Push-Location "$PSScriptRoot\model"
+    Push-Location "$script:ModelDir"
 
     Remove-Item -Path "results" -Recurse -Force -ErrorAction SilentlyContinue
 
@@ -130,7 +146,7 @@ function Start-Workflow {
 
     if ($Reinitialize) {
         Write-Host "Reinitializing simulation..."
-        Remove-Item -Path "$PSScriptRoot\model\init.result*" `
+        Remove-Item -Path "$script:ModelDir\init.result*" `
             -Recurse -Force -ErrorAction SilentlyContinue
     }
 
@@ -172,7 +188,7 @@ function Start-Workflow {
         exit 1
     }
 
-    if (-not (Test-Path "model\init.result*")) {
+    if (-not (Test-Path "$script:ModelDir\init.result*")) {
         $pidWait = Start-SimulationStep -SifFile "0-init.sif"
 
         if ($pidWait -ne $null) {
