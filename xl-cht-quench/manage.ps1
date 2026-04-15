@@ -1,7 +1,8 @@
 param (
     [switch]$RebuildMesh,
     [switch]$Reinitialize,
-    [switch]$Simulate
+    [switch]$Simulate,
+    [string]$NumDimensions = "2d"
 )
 
 $script:PyEnv = [PSCustomObject]@{
@@ -9,8 +10,8 @@ $script:PyEnv = [PSCustomObject]@{
     Path    = "$PSScriptRoot\venv"
 }
 
-$script:MeshFile  = "$PSScriptRoot\model\geometry.msh"
-$script:ElmerMesh = "$PSScriptRoot\model\elmer"
+$script:MeshFile  = "$PSScriptRoot\model-$NumDimensions\geometry.msh"
+$script:ElmerMesh = "$PSScriptRoot\model-$NumDimensions\elmer"
 $script:MergeTol  = 1.0e-05
 $script:NumProc   = 4
 

@@ -18,7 +18,7 @@ $ T_RAD = 20.0 + 273.15;
 $ T_CONV = 20.0 + 273.15;
 
 ! Heat transfer coefficient:
-$ HTC = 8.0;
+$ HTC = 10.0;
 
 ! Order of time-stepping method:
 $ BDF_ORDER = 1;
@@ -55,19 +55,19 @@ Material 1
 
     Density = Variable Temperature
         Real
-            Include "data/rho.dat"
+            Include "../data/rho.dat"
         End
 
     Emissivity = 0.90
 
     Heat Conductivity = Variable Temperature
         Real
-            Include "data/k.dat"
+            Include "../data/k.dat"
         End
 
     Heat Capacity = Variable Temperature
         Real
-            Include "data/cp.dat"
+            Include "../data/cp.dat"
         End
 
     ! Dummy:
@@ -83,7 +83,7 @@ Material 1
 
     Heat Expansion Coefficient = Variable Temperature
         Real
-            Include "data/alpha.dat"
+            Include "../data/alpha.dat"
         End
 
     ! Temperature of the stress-free reference state: in this case,
@@ -92,7 +92,7 @@ Material 1
 
     Internal Energy = Variable Temperature
         Real
-            Include "data/h.dat"
+            Include "../data/h.dat"
         End
 End
 
@@ -101,7 +101,7 @@ Material 2
 
     Density = Variable Temperature
         Real
-            Include "data/rho.dat"
+            Include "../data/rho.dat"
         End
 
     Emissivity = 0.90
@@ -109,12 +109,12 @@ Material 2
     ! Heat Conductivity = $(K_EQUIV)
     Heat Conductivity = Variable Temperature
         Real
-            Include "data/k_gap.dat"
+            Include "../data/k_gap.dat"
         End
 
     Heat Capacity = Variable Temperature
         Real
-            Include "data/cp.dat"
+            Include "../data/cp.dat"
         End
 
     ! Dummy:
@@ -130,7 +130,7 @@ Material 2
 
     Heat Expansion Coefficient = Variable Temperature
         Real
-            Include "data/alpha.dat"
+            Include "../data/alpha.dat"
         End
 
     ! Temperature of the stress-free reference state: in this case,
