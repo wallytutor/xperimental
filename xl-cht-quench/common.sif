@@ -1,0 +1,332 @@
+! ---------------------------------------------------------------------
+! Parameters
+! ---------------------------------------------------------------------
+
+! Overheating temperature of the ingot material (in K):
+$ OVERHEAT = 0.0;
+
+! Melting temperature of the ingot material (in K):
+$ T_MELT = 1900.00 + OVERHEAT + 273.15;
+
+! Initial temperature of the ingot (in K):
+$ T_INGOT = 20.0 + 273.15;
+
+! External radiation temperature:
+$ T_RAD = 20.0 + 273.15;
+
+! External radiation temperature:
+$ T_CONV = 20.0 + 273.15;
+
+! Heat transfer coefficient:
+$ HTC = 10.0;
+
+! Order of time-stepping method:
+$ BDF_ORDER = 1;
+
+! Nonlinear solver parameters:
+$ MAX_ITER = 500;
+$ NONLINEAR_TOL = 1.0e-06;
+$ RELAXATION = 0.3;
+
+! ---------------------------------------------------------------------
+! Constants
+! ---------------------------------------------------------------------
+
+Constants
+  Gravity(4) = 0 -1 0 9.82
+
+  Stefan Boltzmann = 5.670374419e-08
+
+  Permittivity of Vacuum = 8.85418781e-12
+
+  Permeability of Vacuum = 1.25663706e-6
+
+  Boltzmann Constant = 1.380649e-23
+
+  Unit Charge = 1.6021766e-19
+End
+
+! ---------------------------------------------------------------------
+! Materials
+! ---------------------------------------------------------------------
+
+Material 1
+    Name = "Molten"
+
+    Density = Variable Temperature
+        Real
+            Include "../data/rho.dat"
+        End
+
+    Emissivity = 0.90
+
+    Heat Conductivity = Variable Temperature
+        Real
+            Include "../data/k.dat"
+        End
+
+    Heat Capacity = Variable Temperature
+        Real
+            Include "../data/cp.dat"
+        End
+
+    ! Dummy:
+    Youngs Modulus = Variable Temperature
+        Real
+            298.15  417.0e9
+            1873.15 417.0e9
+            1900.0  100.0e9
+            3000.0  100.0e9
+        End
+
+    Poisson Ratio = 0.25
+
+    Heat Expansion Coefficient = Variable Temperature
+        Real
+            Include "../data/alpha.dat"
+        End
+
+    ! Temperature of the stress-free reference state: in this case,
+    ! the initial temperature of the simulation, NOT room temperature!
+    Reference Temperature = $(T_MELT)
+
+    Internal Energy = Variable Temperature
+        Real
+            Include "../data/h.dat"
+        End
+End
+
+Material 2
+    Name = "Dummy"
+
+    ! Include "../data/rho.dat"
+    Density = Variable Temperature
+        Real
+             200.0  1.7650
+             300.0  1.1770
+             400.0  0.8825
+             600.0  0.5883
+             800.0  0.4412
+            1000.0  0.3530
+            1200.0  0.2942
+            1400.0  0.2521
+            1600.0  0.2206
+            1800.0  0.1961
+            2000.0  0.1765
+            2200.0  0.1604
+            2400.0  0.1471
+            3000.0  0.1177
+        End
+
+    Emissivity = 0.90
+
+    ! Heat Conductivity = $(K_EQUIV)
+    Heat Conductivity = Variable Temperature
+        Real
+            Include "../data/k_gap.dat"
+        End
+
+    Heat Capacity = Variable Temperature
+        Real
+            Include "../data/cp.dat"
+        End
+
+    ! Dummy:
+    Youngs Modulus = Variable Temperature
+        Real
+            298.15  417.0e9
+            1873.15 417.0e9
+            1900.0  100.0e9
+            3000.0  100.0e9
+        End
+
+    Poisson Ratio = 0.25
+
+    Heat Expansion Coefficient = Variable Temperature
+        Real
+            Include "../data/alpha.dat"
+        End
+
+    ! Temperature of the stress-free reference state: in this case,
+    ! the initial temperature of the simulation, NOT room temperature!
+    Reference Temperature = $(T_MELT)
+
+    ! This should have no inertial effects related to solidification !
+    Internal Energy = Variable Temperature
+        Real
+             200.0  0.0
+            3000.0  0.0
+        End
+End
+
+Material 3
+    ! https://www.metalcor.de/en/datenblatt/54/
+    ! https://www.azom.com/article.aspx?ArticleID=6817
+    ! https://metalzenith.com/blogs/steel-properties/
+    !-  446-stainless-steel-properties-and-key-applications
+    Name = "Metal"
+
+    Density = 7700
+
+    ! Lower value for stainless steel!
+    Emissivity = 0.6
+
+    Heat Conductivity = 18.0
+
+    ! Assuming the upper temperature value !
+    Heat Capacity = Variable Temperature
+        Real
+             200.0  450.0
+             500.0  550.0
+            3000.0  550.0
+        End
+
+    Youngs Modulus = 207.0e9
+
+    Poisson Ratio = 0.30
+
+    ! Dummy property for testing: !
+    ! Heat Expansion Coefficient = 10.4e-06
+    Heat Expansion Coefficient = 0.0
+
+    ! Temperature of the stress-free reference state: in this case,
+    ! the initial temperature of the simulation, NOT room temperature!
+    Reference Temperature = $(T_INGOT)
+
+    Internal Energy = Variable Temperature
+        Real
+             200.0  $(7700 * 450.0 * ( 200.0 - 298.15))
+             500.0  $(7700 * 550.0 * ( 500.0 - 298.15))
+            3000.0  $(7700 * 550.0 * (3000.0 - 298.15))
+        End
+End
+
+! ---------------------------------------------------------------------
+! Bodies
+! ---------------------------------------------------------------------
+
+Body 1
+    Name = molten
+    Material = 1
+    Target Bodies(1) = 1
+    Initial condition = 1
+    Equation = 1
+
+    BodyMolten = Logical True
+End
+
+Body 2
+    Name = gap
+    Material = 2
+    Target Bodies(1) = 2
+    Initial condition = 2
+    Equation = 1
+
+    BodyGap = Logical True
+End
+
+Body 3
+    Name = mould
+    Material = 3
+    Target Bodies(1) = 3
+    Initial condition = 2
+    Equation = 1
+
+    BodyMould = Logical True
+End
+
+! ---------------------------------------------------------------------
+! Initial
+! ---------------------------------------------------------------------
+
+Initial Condition 1
+    Name = "Temperature"
+    Temperature = $(T_MELT)
+End
+
+Initial Condition 2
+    Name = "Temperature"
+    Temperature = $(T_INGOT)
+End
+
+! ---------------------------------------------------------------------
+! Physical problem
+! ---------------------------------------------------------------------
+
+! Heat equation solver:
+Solver 1
+    Procedure = "HeatSolve" "HeatSolver"
+    Equation = Heat Equation
+    Exec Solver = Always
+
+    Variable = Temperature
+    Stabilize = True
+    Optimize Bandwidth = True
+
+    Linear System Solver = Iterative
+    Linear System Iterative Method = BiCGStab
+    Linear System Max Iterations = 500
+    Linear System Convergence Tolerance = 1.0e-10
+    Linear System Preconditioning = ILU0
+    Linear System ILUT Tolerance = 1.0e-03
+    Linear System Abort Not Converged = True
+    Linear System Residual Output = 10
+    Linear System Precondition Recompute = 1
+    BiCGstabl polynomial degree = 2
+
+    Nonlinear System Convergence Tolerance = $(NONLINEAR_TOL)
+    Nonlinear System Max Iterations = $(MAX_ITER)
+    Nonlinear System Newton After Iterations = 3
+    Nonlinear System Newton After Tolerance = $(100 * NONLINEAR_TOL)
+    Nonlinear System Relaxation Factor = $(RELAXATION)
+
+    ! --> tests/savescalars_flux/case.sif
+    ! Computes the residual of the linear system r=Ax-b where  A is the !
+    ! stiffness matrix without BCs. This represents the nodal heat loads !
+    ! needed to cause the effect of the BCs. !
+    Calculate Loads = True
+    ! Exported Variable 1 = Temperature Loads
+End
+
+! ---------------------------------------------------------------------
+! Results and postprocessing
+! ---------------------------------------------------------------------
+
+! Save materials properties:
+Solver 2
+    Procedure = "SaveData" "SaveMaterials"
+    Equation = "SaveMaterials"
+    Exec Solver = After Timestep
+
+    Parameter 1 = Density
+    Parameter 2 = Heat Capacity
+    Parameter 3 = Heat Conductivity
+    Parameter 4 = Heat Expansion Coefficient
+    Parameter 5 = Internal Energy
+End
+
+! Save results:
+Solver 3
+    Procedure = "ResultOutputSolve" "ResultOutputSolver"
+    Equation = "ResultOutput"
+
+    ! > Never output, just tabular data < !
+    ! Exec Solver = Never
+
+    ! > Output after every time step < !
+    ! Exec Solver = After Timestep
+
+    ! > Output as "Output Intervals" < !
+    Exec Solver = Before Saving
+
+    Output File Name = case
+    Output Format = vtu
+    Binary Output = True
+    Single Precision = False
+    Save Geometry Ids = True
+    Vtu Time Collection = True
+End
+
+! ---------------------------------------------------------------------
+! EOF
+! ---------------------------------------------------------------------
