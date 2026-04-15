@@ -27,19 +27,22 @@ d = 0.0020
 g = 0.27e-03
 
 # Characteristic size for the mesh elements:
-size_d = d / 4
+size_d = d / 3
 size_g = g / 3
-size_m = 0.001
+size_m = H / 4
 #endregion: parameters
 
 #region: options
 options = {
-    "Mesh.CharacteristicLengthMin": size_g,
-    "Mesh.CharacteristicLengthMax": 1.0,
-    "Mesh.MeshSizeMax": 1.2,
+    "General.GraphicsWidth": 1920,
+    "General.GraphicsHeight": 1080,
+    # "Mesh.CharacteristicLengthMin": size_g,
+    # "Mesh.CharacteristicLengthMax": 2.5,
+    "Mesh.SurfaceFaces": True,
+    "Mesh.MeshSizeMax": 2.5,
     "Mesh.SaveAll": False,
     "Mesh.SaveGroupsOfNodes": True,
-    "Mesh.Algorithm": 6,
+    "Mesh.Algorithm": 5,
     "Mesh.ElementOrder": 2,
     "Geometry.Points": False,
     "Geometry.Lines": True,
@@ -135,35 +138,61 @@ with GmshOCCModel(name="domain", render=True, **options) as model:
     #region: repair geometry
     model.fragment([body_molten], [body_gap])
     model.fragment([body_gap], [body_mould])
+    model.fragment([body_molten], [body_mould])
     model.synchronize()
     #endregion: repair geometry
 
     #region: meshing
-    # Identify surfaces for boundary conditions:
+    # # Identify surfaces for boundary conditions:
     bc_in_0      = [40, 41]
     bc_in_1      = [46, 47, 48]
-    bc_in_2      = [42]
-    bc_sx_molten = [38]
+    bc_in_2      = [52]
+
+    bc_sx_molten = [50]
     bc_sx_gap    = [44]
-    bc_sx_mould  = [50]
-    bc_sy_molten = [39]
+    bc_sx_mould  = [54]
+
+    bc_sy_molten = [51]
     bc_sy_gap    = [45]
-    bc_sy_mould  = [56]
-    bc_ex_molten = [43]
+    bc_sy_mould  = [59]
+
+    bc_ex_molten = [53]
     bc_ex_gap    = [49]
-    bc_ex_mould  = [51, 52, 54, 55, 57, 58, 59, 60, 61]
+    bc_ex_mould  = [55, 56, 57, 58, 60, 61, 62, 63, 64]
 
-    # set_transfinite(model, bc_i_0, size_g)
-    # set_transfinite(model, bc_i_1, size_g)
-    # set_transfinite(model, bc_l_gap, size_g)
-    # set_transfinite(model, bc_t_gap, size_g)
-    # set_progression(model, bc_l_molten[0], size_d, size_g)
-    # set_progression(model, bc_t_molten[0], size_g, size_d)
-    # set_progression(model, bc_l_mould[0], size_g, size_m)
-    # set_progression(model, bc_t_mould[0], size_m, size_g)
-    # set_transfinite(model, bc_e_mould, size_m)
+    constant_sizes = {
+        body_molten[1]: size_d,
+        body_gap[1]:    size_g,
+        body_mould[1]:  size_m,
+    }
+    fields_list = []
+
+    for idx, (body, size) in enumerate(constant_sizes.items(), start=1):
+         model._mesh.field.add("Constant", idx)
+         model._mesh.field.setNumbers(idx, "VolumesList", [body])
+         model._mesh.field.setNumber(idx, "VIn", size)
+         fields_list.append(idx)
+
+    field_min = 1 + len(constant_sizes)
+    model._mesh.field.add("Min", field_min)
+    model._mesh.field.setNumbers(field_min, "FieldsList", fields_list)
+    model._mesh.field.setAsBackgroundMesh(field_min)
+
+    # model._mesh.field.add("Distance", field_gap)
+    # model._mesh.field.setNumbers(field_gap, "SurfacesList", bc_in_0 + bc_in_1)
+    # model._mesh.field.setNumber(field_gap, "Sampling", 200)
+
+    # model._mesh.field.add("Threshold", field_thresh)
+    # model._mesh.field.setNumber(field_thresh, "InField", field_gap)
+    # model._mesh.field.setNumber(field_thresh, "DistMin", 2*size_g)
+    # model._mesh.field.setNumber(field_thresh, "DistMax", 4*size_g)
+    # model._mesh.field.setNumber(field_thresh, "SizeMin", size_g)
+    # model._mesh.field.setNumber(field_thresh, "SizeMax", size_m)
+    # model._mesh.field.setNumber(field_thresh, "StopAtDistMax", 1)
     model.synchronize()
+    #endregion: meshing
 
+    #region: tagging
     bounds = [
         {"tags": bc_in_0,      "name": "in_molten_gap",   "tag_id":  1},
         {"tags": bc_in_1,      "name": "in_gap_mould",    "tag_id":  2},
@@ -192,7 +221,7 @@ with GmshOCCModel(name="domain", render=True, **options) as model:
         model.add_physical_volume(**entry)
 
     model.synchronize()
-    #endregion: meshing
+    #endregion: tagging
 
-    # model.generate_mesh(dim=2)
-    # model.dump(f"geometry.msh")
+    model.generate_mesh(dim=3)
+    model.dump(f"geometry.msh")
