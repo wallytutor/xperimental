@@ -121,9 +121,10 @@ with GmshOCCModel(name="domain", render=True, **options) as model:
 
     # Width of the gap/molten zone:
     # set_transfinite(model, [27, 28, 30], size_d)
-    set_progression(model, 28, size_d, 2*size_g)
-    set_progression(model, 27, 2*size_g, size_d)
-    set_progression(model, 30, 2*size_g, size_d)
+    width_char = 3 * size_g
+    set_progression(model, 28, size_d, width_char)
+    set_progression(model, 27, width_char, size_d)
+    set_progression(model, 30, width_char, size_d)
 
     # Sides of molten zone:
     set_progression(model, 10, size_d, size_g)
@@ -143,7 +144,7 @@ with GmshOCCModel(name="domain", render=True, **options) as model:
     #region: meshing 2
     # Extrude the zones to create the 3D geometry:
     h_layers = D1 + D2
-    n_layers = int(h_layers / (2*size_d))
+    n_layers = int(h_layers / width_char)
     opts = dict(numElements=[n_layers], recombine=True)
     tags_molten = model.extrude([(2, base_molten)], 0, 0, h_layers, **opts)
     tags_gap    = model.extrude([(2, base_gap)],    0, 0, h_layers, **opts)
@@ -166,17 +167,17 @@ with GmshOCCModel(name="domain", render=True, **options) as model:
 
     field_dist = 2
     model._mesh.field.add("Distance", field_dist)
-    model._mesh.field.setNumbers(field_dist, "SurfacesList", [36])
-    model._mesh.field.setNumber(field_dist, "Sampling", 100)
+    model._mesh.field.setNumbers(field_dist, "SurfacesList", [35, 36, 40])
+    model._mesh.field.setNumber(field_dist, "Sampling", 1000)
 
     field_thre = 3
     model._mesh.field.add("Threshold", field_thre)
     model._mesh.field.setNumber(field_thre, "InField", field_dist)
     model._mesh.field.setNumber(field_thre, "DistMin",  2*size_g)
-    model._mesh.field.setNumber(field_thre, "DistMax", 10*size_g)
-    model._mesh.field.setNumber(field_thre, "SizeMin", size_g)
+    model._mesh.field.setNumber(field_thre, "DistMax", 2*width_char)
+    model._mesh.field.setNumber(field_thre, "SizeMin", width_char)
     model._mesh.field.setNumber(field_thre, "SizeMax", size_m)
-    model._mesh.field.setNumber(field_thre, "StopAtDistMax", 1)
+    # model._mesh.field.setNumber(field_thre, "StopAtDistMax", 1)
 
     field_min = 4
     field_list = [field_cons, field_thre]
@@ -224,5 +225,5 @@ with GmshOCCModel(name="domain", render=True, **options) as model:
     #endregion: tagging
 
     model.generate_mesh(dim=2)
-    # model.generate_mesh(dim=3)
-    # model.dump(f"geometry.msh")
+    model.generate_mesh(dim=3)
+    model.dump(f"geometry.msh")
