@@ -27,9 +27,9 @@ d = 0.0020
 g = 0.27e-03
 
 # Characteristic size for the mesh elements:
-size_d = d / 2
-size_g = g / 3
-size_m = H / 6
+size_d = d / 5
+size_g = g / 5
+size_m = 0.001
 #endregion: parameters
 
 #region: options
@@ -37,7 +37,7 @@ options = {
     "General.GraphicsWidth": 1920,
     "General.GraphicsHeight": 1080,
     "Mesh.SurfaceFaces": True,
-    "Mesh.MeshSizeMax": 2.5,
+    "Mesh.MeshSizeMax": 1.5,
     "Mesh.SaveAll": False,
     "Mesh.SaveGroupsOfNodes": True,
     "Mesh.Algorithm": 6,
@@ -58,53 +58,59 @@ def set_transfinite(model, tagset, charlen):
 def set_progression(model, tag, d0, d1):
     dl = model.get_length(tag)
     nn, q = GeometricProgression.fit(dl, d0, d1)
+    print(f"Progression for tag {tag}: n={nn}, q={q}")
     model.set_transfinite_curve(tag, nn, "Progression", q)
 
 
 with GmshOCCModel(name="domain", render=True, **options) as model:
-    #region: geometry
+    #region: geometry 1
     # The overall domain rectangle:
-    o1 = (0.0, 0.0, 0.0)
+    o1 = (0.0, 0.0, D0)
     r1 = model.add_rectangle(*o1, L, H)
 
-    # The quenched zone rectangle:
-    o2 = (0.0, H - d + 0, 0.0)
-    r2 = model.add_rectangle(*o2, w - 0, d - 0)
-
     # The *actual* material inside the gap:
-    o3 = (0.0, H - d + g, 0.0)
-    r3 = model.add_rectangle(*o3, w - g, d - g)
+    o2 = (0.0, H - d + g, D0)
+    r2 = model.add_rectangle(*o2, w, d - g)
 
-    # Split the quenched zone into the actual material and the gap:
-    objs, tool = [(2, r2)], [(2, r3)]
-    tags_op1, _ = model.fragment(objs, tool)
-    model.synchronize()
+    # The gap zone rectangle:
+    o3 = (0.0, H - d, D0)
+    r3 = model.add_rectangle(*o3, w, g)
 
     # Cut the quenched zone out of the overall domain.
-    # Remove the duplicate molten material zone after the cut.
-    objs, tool = [(2, r1)], [tags_op1[0]]
-    tags_op2, _ = model.fragment(objs, tool)
-    model.remove([tags_op2[-1]])
+    objs, tool = [(2, r1)], [(2, r2), (2, r3)]
+    tags, _ = model.fragment(objs, tool, removeObject=1)
+    model.synchronize()
+
+    # Create the other half of the mould by symmetry:
+    (tag_mould, tag_gap, tag_molten) = tags
+    model.transform_symmetrize([tag_mould], axis="y", copy=True)
+    tags_mould = model.fuse([tag_mould], [(2, 1+tag_mould[1])])[0][0]
     model.synchronize()
 
     # Enforce shared nodes between the zones:
-    tags_fr1, _ = model.fragment([tags_op1[1]], [tags_op2[1]])
-    tags_fr2, _ = model.fragment([tags_op2[0]], [tags_fr1[1]])
+    (tag_molten, tag_gap), _   = model.fragment([tag_molten], [tag_gap])
+    (tag_gap, tag_mould), _    = model.fragment([tag_gap],    [tag_mould])
+    (tag_molten, tag_mould), _ = model.fragment([tag_molten], [tag_mould])
     model.synchronize()
+    #endregion: geometry 1
 
-    # Retrieve the tags of the different zones:
-    tag_molten = tags_fr1[0]
-    tag_gap    = tags_fr2[1]
-    tag_mould  = tags_fr2[0]
+    #region: transfinite surface
+    set_transfinite(model, [3, 8], size_g)
+    set_transfinite(model, [2, 9, 11], 4*size_g)
+    model.set_transfinite_surface(tag_gap[1])
+    model.set_recombine(2, tag_gap[1])
 
-    # Create the other half of the mould by symmetry:
-    model.transform_symmetrize([tag_mould], axis="y", copy=True)
-    tags_mould = model.fuse([tag_mould], [(2, 1+tag_mould[1])])[0][0]
-    model.fragment([tag_gap], [tag_molten])
-    model.synchronize()
-    #endregion: geometry
+    set_progression(model,  4, size_g, size_d)
+    set_progression(model, 10, size_d, size_g)
+    model.set_transfinite_surface(tag_molten[1])
+    model.set_recombine(2, tag_molten[1])
 
-    #region: geometry extension
+    set_progression(model, 12, size_g, size_m)
+    set_progression(model, 17, size_m, size_d)
+    # model.generate_mesh(dim=2) # DEBUG
+    #endregion: transfinite surface
+
+    #region: geometry 2
     # Create new baseline rectangle for lower body:
     on1 = (0.0, -H, 0.0)
     rn1 = model.add_rectangle(*on1, L, 2*H)
@@ -112,7 +118,6 @@ with GmshOCCModel(name="domain", render=True, **options) as model:
     body_base = tags_base[1]
 
     # Move the geometry by D0 in the z direction:
-    model.translate([tag_molten, tag_gap, tag_mould], 0, 0, D0)
     tags_molten = model.extrude([tag_molten], 0, 0, D1+D2)
     tags_gap    = model.extrude([tag_gap],    0, 0, D1+D2)
     tags_mould  = model.extrude([tag_mould],  0, 0, D1+D2)
@@ -126,19 +131,17 @@ with GmshOCCModel(name="domain", render=True, **options) as model:
     tags_inertial = model.extrude([(2, rn2)], 0.0, 0, D2)
     body_inertial = tags_inertial[1]
 
-    # # Fuse mould parts:
+    # Fuse mould parts:
     outputs = model.fuse([body_mould], [body_inertial, body_base])
     body_mould = outputs[0][0]
-
     model.synchronize()
-    #endregion: geometry extension
 
-    #region: repair geometry
+    # Enforce shared nodes between the zones:
     model.fragment([body_molten], [body_gap])
     model.fragment([body_gap], [body_mould])
     model.fragment([body_molten], [body_mould])
     model.synchronize()
-    #endregion: repair geometry
+    #endregion: geometry 2
 
     #region: base tags
     # # Identify surfaces for boundary conditions:
@@ -160,39 +163,16 @@ with GmshOCCModel(name="domain", render=True, **options) as model:
     #endregion: base tags
 
     #region: meshing anisotropy
+    # model.generate_mesh(dim=2)
+    # n_layers = int((D1+D2)/size_d)
 
-    # Mesh the base geometry with gap-mould based refinement:
-    tags = [118, 120, 123, 126, 129, 131]
-    set_transfinite(model, tags, size_g)
-    model.generate_mesh(dim=2)
+    # model.extrude(
+    #     [(2, 44), (2, 49)],
+    #     0, 0, D1+D2,
+    #     numElements=[n_layers],
+    #     recombine=True
+    # )
 
-    n_layers = int(D1 + D2)
-
-    model.extrude(
-        [(2, 48)],
-        0, 0, D1+D2,
-        numElements=[n_layers],
-        recombine=True
-    )
-
-    model.synchronize()
-
-    # constant_sizes = {
-    #     body_molten[1]: size_d,
-    #     body_mould[1]:  size_m,
-    # }
-    # fields_list = []
-
-    # for idx, (body, size) in enumerate(constant_sizes.items(), start=1):
-    #      model._mesh.field.add("Constant", idx)
-    #      model._mesh.field.setNumbers(idx, "VolumesList", [body])
-    #      model._mesh.field.setNumber(idx, "VIn", size)
-    #      fields_list.append(idx)
-
-    # field_min = 1 + len(fields_list)
-    # model._mesh.field.add("Min", field_min)
-    # model._mesh.field.setNumbers(field_min, "FieldsList", fields_list)
-    # model._mesh.field.setAsBackgroundMesh(field_min)
     # model.synchronize()
     #endregion: meshing anisotropy
 
@@ -237,35 +217,36 @@ with GmshOCCModel(name="domain", render=True, **options) as model:
     #endregion: meshing 2
 
     #region: tagging
-    bounds = [
-        {"tags": bc_in_0,      "name": "in_molten_gap",   "tag_id":  1},
-        {"tags": bc_in_1,      "name": "in_gap_mould",    "tag_id":  2},
-        {"tags": bc_in_2,      "name": "in_molten_mould", "tag_id":  3},
-        {"tags": bc_sx_molten, "name": "sx_molten",       "tag_id":  4},
-        {"tags": bc_sx_gap,    "name": "sx_gap",          "tag_id":  5},
-        {"tags": bc_sx_mould,  "name": "sx_mould",        "tag_id":  6},
-        {"tags": bc_sy_molten, "name": "sy_molten",       "tag_id":  7},
-        {"tags": bc_sy_gap,    "name": "sy_gap",          "tag_id":  8},
-        {"tags": bc_sy_mould,  "name": "sy_mould",        "tag_id":  9},
-        {"tags": bc_ex_molten, "name": "ex_molten",       "tag_id": 10},
-        {"tags": bc_ex_gap,    "name": "ex_gap",          "tag_id": 11},
-        {"tags": bc_ex_mould,  "name": "ex_mould",        "tag_id": 12},
-    ]
+    # bounds = [
+    #     {"tags": bc_in_0,      "name": "in_molten_gap",   "tag_id":  1},
+    #     {"tags": bc_in_1,      "name": "in_gap_mould",    "tag_id":  2},
+    #     {"tags": bc_in_2,      "name": "in_molten_mould", "tag_id":  3},
+    #     {"tags": bc_sx_molten, "name": "sx_molten",       "tag_id":  4},
+    #     {"tags": bc_sx_gap,    "name": "sx_gap",          "tag_id":  5},
+    #     {"tags": bc_sx_mould,  "name": "sx_mould",        "tag_id":  6},
+    #     {"tags": bc_sy_molten, "name": "sy_molten",       "tag_id":  7},
+    #     {"tags": bc_sy_gap,    "name": "sy_gap",          "tag_id":  8},
+    #     {"tags": bc_sy_mould,  "name": "sy_mould",        "tag_id":  9},
+    #     {"tags": bc_ex_molten, "name": "ex_molten",       "tag_id": 10},
+    #     {"tags": bc_ex_gap,    "name": "ex_gap",          "tag_id": 11},
+    #     {"tags": bc_ex_mould,  "name": "ex_mould",        "tag_id": 12},
+    # ]
 
-    zones = [
-        {"tags": [body_molten[1]], "name": "molten", "tag_id": 1},
-        {"tags": [body_gap[1]],    "name": "gap",    "tag_id": 2},
-        {"tags": [body_mould[1]],  "name": "mould",  "tag_id": 3},
-    ]
+    # zones = [
+    #     {"tags": [body_molten[1]], "name": "molten", "tag_id": 1},
+    #     {"tags": [body_gap[1]],    "name": "gap",    "tag_id": 2},
+    #     {"tags": [body_mould[1]],  "name": "mould",  "tag_id": 3},
+    # ]
 
-    for entry in bounds:
-        model.add_physical_surface(**entry)
+    # for entry in bounds:
+    #     model.add_physical_surface(**entry)
 
-    for entry in zones:
-        model.add_physical_volume(**entry)
+    # for entry in zones:
+    #     model.add_physical_volume(**entry)
 
-    model.synchronize()
+    # model.synchronize()
     #endregion: tagging
 
-    model.generate_mesh(dim=3)
+
+    # model.generate_mesh(dim=3)
     # model.dump(f"geometry.msh")
