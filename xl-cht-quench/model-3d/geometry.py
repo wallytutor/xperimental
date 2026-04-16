@@ -28,8 +28,8 @@ d = 0.0020
 g = 0.27e-03
 
 # Characteristic size for the mesh elements:
-size_d = d / 4
-size_g = g / 4
+size_d = d / 5
+size_g = g / 5
 size_m = 0.001
 #endregion: parameters
 
@@ -40,7 +40,7 @@ options = {
     "General.GraphicsWidth": monitor.width,
     "General.GraphicsHeight": monitor.height,
     "Mesh.SurfaceFaces": True,
-    "Mesh.MeshSizeMax": 1.5,
+    "Mesh.MeshSizeMax": 2*size_m,
     "Mesh.SaveAll": False,
     "Mesh.SaveGroupsOfNodes": True,
     "Mesh.Algorithm": 6,
@@ -100,6 +100,7 @@ with GmshOCCModel(name="domain", render=True, **options) as model:
     body_mould = model_mould(model)
     model.synchronize()
 
+    #region: meshing 1
     # The *actual* material inside the gap:
     o = (0.0, H - d + g, D0)
     melt = model.add_rectangle(*o, w, d - g)
@@ -116,14 +117,17 @@ with GmshOCCModel(name="domain", render=True, **options) as model:
     base_gap    = 22
 
     # Sides of gap zone:
-    set_transfinite(model, [11, 29], size_g) # B
+    set_transfinite(model, [11, 29], size_g)
 
     # Width of the gap/molten zone:
-    set_transfinite(model, [27, 28, 30], 2*size_d) # B
+    # set_transfinite(model, [27, 28, 30], size_d)
+    set_progression(model, 28, size_d, 2*size_g)
+    set_progression(model, 27, 2*size_g, size_d)
+    set_progression(model, 30, 2*size_g, size_d)
 
     # Sides of molten zone:
-    set_progression(model, 10, size_d, size_g) # B
-    set_progression(model, 37, size_d, size_g) # B
+    set_progression(model, 10, size_d, size_g)
+    set_progression(model, 37, size_d, size_g)
 
     # Make surfaces transfinite and recombine:
     model.set_transfinite_surface(base_gap)
@@ -134,7 +138,9 @@ with GmshOCCModel(name="domain", render=True, **options) as model:
     # Generate base meshes for the zones:
     model.generate_mesh(dim=2)
     model.synchronize()
+    #endregion: meshing 1
 
+    #region: meshing 2
     # Extrude the zones to create the 3D geometry:
     h_layers = D1 + D2
     n_layers = int(h_layers / (2*size_d))
@@ -151,76 +157,72 @@ with GmshOCCModel(name="domain", render=True, **options) as model:
     (body_molten, body_mould), _ = model.fragment([body_molten], [body_mould])
     model.synchronize()
 
-    idx = 1
+    field_cons = 1
     body = body_mould[1]
     size = size_m
-    model._mesh.field.add("Constant", idx)
-    model._mesh.field.setNumbers(idx, "VolumesList", [body])
-    model._mesh.field.setNumber(idx, "VIn", size)
+    model._mesh.field.add("Constant", field_cons)
+    model._mesh.field.setNumbers(field_cons, "VolumesList", [body])
+    model._mesh.field.setNumber(field_cons, "VIn", size)
 
-    field_min = 2
+    field_dist = 2
+    model._mesh.field.add("Distance", field_dist)
+    model._mesh.field.setNumbers(field_dist, "SurfacesList", [36])
+    model._mesh.field.setNumber(field_dist, "Sampling", 100)
+
+    field_thre = 3
+    model._mesh.field.add("Threshold", field_thre)
+    model._mesh.field.setNumber(field_thre, "InField", field_dist)
+    model._mesh.field.setNumber(field_thre, "DistMin",  2*size_g)
+    model._mesh.field.setNumber(field_thre, "DistMax", 10*size_g)
+    model._mesh.field.setNumber(field_thre, "SizeMin", size_g)
+    model._mesh.field.setNumber(field_thre, "SizeMax", size_m)
+    model._mesh.field.setNumber(field_thre, "StopAtDistMax", 1)
+
+    field_min = 4
+    field_list = [field_cons, field_thre]
     model._mesh.field.add("Min", field_min)
-    model._mesh.field.setNumbers(field_min, "FieldsList", [idx])
+    model._mesh.field.setNumbers(field_min, "FieldsList", field_list)
     model._mesh.field.setAsBackgroundMesh(field_min)
     model.synchronize()
+    #endregion: meshing 2
 
-    model.generate_mesh(dim=3)
+    #region: tagging
+    # Identify surfaces for boundary conditions:
+    bc_sx_gap    = [37]
+    bc_sx_molten = [41]
+    bc_sx_mould  = [44]
+    bc_sy_molten = [39]
+    bc_sy_mould  = [48]
+    bc_ex_gap    = [38]
+    bc_ex_molten = [42]
+    bc_ex_mould  = [43, 45, 46, 47, 49, 50, 51, 52, 53]
 
+    bounds = [
+        {"tags": bc_sx_gap,    "name": "sx_gap",          "tag_id":  1},
+        {"tags": bc_sx_molten, "name": "sx_molten",       "tag_id":  2},
+        {"tags": bc_sx_mould,  "name": "sx_mould",        "tag_id":  3},
+        {"tags": bc_sy_molten, "name": "sy_molten",       "tag_id":  4},
+        {"tags": bc_sy_mould,  "name": "sy_mould",        "tag_id":  5},
+        {"tags": bc_ex_molten, "name": "ex_molten",       "tag_id":  6},
+        {"tags": bc_ex_gap,    "name": "ex_gap",          "tag_id":  7},
+        {"tags": bc_ex_mould,  "name": "ex_mould",        "tag_id":  8},
+    ]
 
+    zones = [
+        {"tags": [body_molten[1]], "name": "molten", "tag_id": 1},
+        {"tags": [body_gap[1]],    "name": "gap",    "tag_id": 2},
+        {"tags": [body_mould[1]],  "name": "mould",  "tag_id": 3},
+    ]
 
+    for entry in bounds:
+        model.add_physical_surface(**entry)
 
-    # # Copy and enforce shared nodes between the zones:
-    # copy_molten = model._occ.copy([(2, base_molten)])[0][1]
-    # copy_gap    = model._occ.copy([(2, base_gap)])[0][1]
-    # model.fragment([(2, copy_molten)], [(2, copy_gap)])
+    for entry in zones:
+        model.add_physical_volume(**entry)
 
-    # # # Extrude the zones to create the 3D geometry:
-    # # h_layers = D1 + D2
-    # # tags_molten = model.extrude([(2, copy_molten)], 0, 0, h_layers)
-    # # tags_gap    = model.extrude([(2, copy_gap)],    0, 0, h_layers)
-    # # body_molten = tags_molten[1]
-    # # body_gap    = tags_gap[1]
-    # # model.synchronize()
+    model.synchronize()
+    #endregion: tagging
 
-    # # # Enforce shared nodes between the zones:
-    # # (body_molten, body_gap), _   = model.fragment([body_molten], [body_gap])
-    # # (body_gap,    body_mould), _ = model.fragment([body_gap],    [body_mould])
-    # # (body_molten, body_mould), _ = model.fragment([body_molten], [body_mould])
-    # # model.synchronize()
-
-    # # # Sides of gap zone:
-    # # set_transfinite(model, [61, 56], size_g) # B
-    # # set_transfinite(model, [62, 57], size_g) # T
-
-    # # # Width of the gap/molten zone:
-    # # set_transfinite(model, [54, 59, 65], 4*size_g)
-    # # set_transfinite(model, [49, 60, 66], 4*size_g)
-
-    # # # Sides of molten zone:
-    # # set_progression(model, 72, size_d, size_g) # B
-    # # set_progression(model, 73, size_d, size_g) # T
-    # # set_progression(model, 68, size_d, size_g) # B
-    # # set_progression(model, 69, size_d, size_g) # T
-
-    # # # Get new indices for the bases of the zones:
-    # # base_molten = 46
-    # # base_gap    = 40
-
-    # # # Base of the gap:
-    # # model.set_transfinite_surface(base_gap)
-    # # model.set_recombine(2, base_gap)
-
-    # # # Base of the molten zone:
-    # # model.set_transfinite_surface(base_molten)
-    # # model.set_recombine(2, base_molten)
-
-    # # model.generate_mesh(dim=2)
-    # # model.synchronize()
-
-    # # h_layers = D1 + D2
-    # # n_layers = int(h_layers / size_d)
-    # # opts = dict(numElements=[n_layers], recombine=True)
-    # # surf = [(2, base_molten), (2, base_gap)]
-    # # model.extrude(surf, 0, 0, h_layers, **opts)
-    # # model.synchronize()
-    # # model.generate_mesh(dim=3)
+    model.generate_mesh(dim=2)
+    # model.generate_mesh(dim=3)
+    # model.dump(f"geometry.msh")
