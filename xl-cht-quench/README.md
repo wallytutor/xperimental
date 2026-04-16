@@ -6,11 +6,11 @@
 
 ```powershell
 # Generate the mesh (change NumDimensions to "2d" or "3d")
-.\manage.ps1 -NumDimensions "2d" -RebuildMesh
+.\manage.ps1 -NumDimensions "2d" -NumProc 20 -RebuildMesh
 
 # Run the simulation
-.\manage.ps1 -NumDimensions "2d" -Simulate
+.\manage.ps1 -NumDimensions "2d" -NumProc 20 -Simulate
 
 # Force reinitialization of the simulation (relaxation step)
-.\manage.ps1 -NumDimensions "2d" -Reinitialize
+.\manage.ps1 -NumDimensions "2d" -NumProc 20 -Reinitialize
 ```

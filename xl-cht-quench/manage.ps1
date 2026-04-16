@@ -2,7 +2,8 @@ param (
     [switch]$RebuildMesh,
     [switch]$Reinitialize,
     [switch]$Simulate,
-    [string]$NumDimensions = "2d"
+    [string]$NumDimensions = "2d",
+    [int]$NumProc = 4
 )
 
 $script:PyEnv = [PSCustomObject]@{
@@ -15,7 +16,6 @@ $script:GmshFile  = "$script:ModelDir\geometry.py"
 $script:MeshFile  = "$script:ModelDir\geometry.msh"
 $script:ElmerMesh = "$script:ModelDir\elmer"
 $script:MergeTol  = 1.0e-05
-$script:NumProc   = 4
 
 function Push-PopLocation {
     param(
@@ -57,7 +57,7 @@ function Invoke-ElmerGridPartition {
         "$script:ElmerMesh", # Path to input directory
         "-partdual",
         "-metiskway",
-        "$script:NumProc"
+        "$NumProc"
     )
 
     Start-Process -NoNewWindow -Wait -FilePath "ElmerGrid.exe" `
@@ -170,7 +170,7 @@ function Start-Workflow {
     }
 
     $pathMesh = $script:ElmerMesh
-    $pathPart = "$script:ElmerMesh\partitioning.$script:NumProc"
+    $pathPart = "$script:ElmerMesh\partitioning.$NumProc"
 
     if (-not (Test-Path $pathMesh)) {
         Invoke-ElmerGridConversion

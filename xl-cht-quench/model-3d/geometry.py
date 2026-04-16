@@ -39,6 +39,7 @@ monitor = get_monitors()[0]
 options = {
     "General.GraphicsWidth": monitor.width,
     "General.GraphicsHeight": monitor.height,
+    "Mesh.ColorCarousel": 2,
     "Mesh.SurfaceFaces": True,
     "Mesh.MeshSizeMax": 2*size_m,
     "Mesh.SaveAll": False,
