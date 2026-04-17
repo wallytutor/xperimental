@@ -253,7 +253,7 @@ def air_properties(T):
 def plot_surface_to_volume_ratio(cell_block, *, plot):
     func = cell_block.get_surface_to_volume_ratio()
     D_samples = np.linspace(0.010, 0.050, 100)
-    m_samples = np.arange(0.5, 3.0+0.001, 0.5)
+    m_samples = np.arange(0.5, 2.0+0.001, 0.5)
 
     _, ax = plot.subplots()
     ax = ax[0]
@@ -265,6 +265,27 @@ def plot_surface_to_volume_ratio(cell_block, *, plot):
         ratio_sv = func(D_samples, m)
         color = next(color_cycle)
         ax.plot(100*D_samples, ratio_sv, color=color, label=f"m={m:.1f}")
+
+    ax.legend(loc=1, fontsize="small")
+    return plot
+
+
+@mj.MajordomePlot.new(size=(5, 4), xlabel="Diameter of holes (cm)",
+                      ylabel="Pressure drop (mbar)")
+def plot_pressure_drop(func, *, plot):
+    D_samples = np.linspace(0.010, 0.050, 100)
+    m_samples = np.arange(0.5, 2.0+0.001, 0.5)
+
+    _, ax = plot.subplots()
+    ax = ax[0]
+
+    color_map = cm.get_cmap("tab10")
+    color_cycle = cycle(color_map.colors) # type: ignore
+
+    for m in m_samples:
+        val = func(D_samples, m) / 100
+        color = next(color_cycle)
+        ax.plot(100*D_samples, val, color=color, label=f"m={m:.1f}")
 
     ax.legend(loc=1, fontsize="small")
     return plot

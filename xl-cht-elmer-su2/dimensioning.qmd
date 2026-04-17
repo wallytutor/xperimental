@@ -23,12 +23,13 @@ jupyter: python3
 ---
 
 ```{python}
-try:
-    ip = get_ipython()
-    if "majordome.magic" not in ip.extension_manager.loaded:
-        ip.run_line_magic('load_ext', 'majordome.magic')
-except:
-    pass
+# try:
+#     ip = get_ipython()
+#     if "majordome.magic" not in ip.extension_manager.loaded:
+#         ip.run_line_magic('load_ext', 'majordome.magic')
+# except:
+#     pass
+%load_ext majordome.magic
 
 import thermocline as tc
 import numpy as np
@@ -253,6 +254,46 @@ Below we display the surface-to-volume ratio of the hexagonal cell as a function
 #| fig-align: center
 #| out-width: 80%
 p = tc.plot_surface_to_volume_ratio(cell_block)
+```
+
+Similarly, the pressure drop across the height of the thermocline can be estimated as a function of the diameter of holes and the fraction of diameter representing wall thickness. Below we display the pressure drop during charging as a function of these parameters.
+
+```{python}
+#| fig-cap: Pressure drop across the height of the thermocline during charging
+#| fig-align: center
+#| out-width: 80%
+def dp_scan(D_h, m_h, f=f):
+    # Heating is more critical:
+    args = [
+        # ThermoclineDescription
+        num_H_t,
+        num_h_t,
+        num_T_h,
+        num_T_c,
+        # HexagonalCell
+        D_h, # Overrides for funtion
+        m_h, # Overrides for funtion
+        # SolidMaterial
+        num_rho_s,
+        num_c_ps,
+        num_k_s,
+        # OperatingFluid
+        num_h_g_c,
+        num_h_g_h,
+        # Charging parameters
+        num_P_c,
+        num_rho_g_h,
+        num_mu_g_h
+
+    ]
+
+    rho = args[-2]
+    v   = fn_U_g(*args)
+
+    calc = tc.PressureDropCalculator(num_h_t, D_h)
+    return calc.darcy_weisbach_pressure_drop(rho, v, f=f)
+
+tc.plot_pressure_drop(dp_scan)
 ```
 
 ```{=latex}

@@ -45,6 +45,18 @@ python geometry-build.py
 .\manage.ps1 -Clean
 ```
 
+---
+
 ## Running Elmer model
 
 *Upcoming...*
+
+---
+
+## Generating the report
+
+```bash
+$env:QUARTO_PYTHON = ".venv\Scripts\python.exe"
+
+quarto render dimensioning.qmd
+```
