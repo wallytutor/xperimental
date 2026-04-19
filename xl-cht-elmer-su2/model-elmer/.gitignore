@@ -1,0 +1,4 @@
+**/*.boundary
+**/*.elements
+**/*.header
+**/*.nodes

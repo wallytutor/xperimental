@@ -141,7 +141,6 @@ def make_this(model, this, other):
     # Create base surface
     base = [(2, t) for t in this.surface_tags]
 
-
     model.generate_mesh(dim=2)
     opts = dict(numElements=[n_layers], recombine=True)
     new_tags = model.extrude(base, 0, 0, h_h, **opts)
@@ -202,14 +201,65 @@ def make_solid(model):
             {"tags": solid, "name": "solid", "tag_id": 2},
         ]
     )
+
+
+def make_full(model):
+    hole, hexagon = make_base(model)
+
+    # Create base surface
+    base  = [(2, t) for t in hole.surface_tags]
+    base += [(2, t) for t in hexagon.surface_tags]
+
+    model.generate_mesh(dim=2)
+    opts = dict(numElements=[n_layers], recombine=True)
+    new_tags = model.extrude(base, 0, 0, h_h, **opts)
+    model.synchronize()
+
+    model.generate_mesh(dim=3)
+    model.synchronize()
+
+    extruded = ms.get_extrusion_tags(new_tags, 2)
+    extruded_super, extruded_ndim = extruded
+
+    fluid    = extruded_super[:7]
+    solid    = extruded_super[7:]
+    outlet   = extruded_ndim[:7]
+    top      = extruded_ndim[7:]
+    inlet    = hole.surface_tags
+    bottom   = hexagon.surface_tags
+    symmetry = [41, 44, 47, 50, 53, 55]
+
+    model.add_physical_groups(
+        surfaces=[
+            {"tags": inlet,    "name": "fluid_inlet",     "tag_id": 1},
+            {"tags": outlet,   "name": "fluid_outlet",    "tag_id": 2},
+            {"tags": bottom,   "name": "solid_bottom",    "tag_id": 3},
+            {"tags": top,      "name": "solid_top",       "tag_id": 4},
+            {"tags": symmetry, "name": "solid_symmetry",  "tag_id": 5},
+        ],
+        volumes=[
+            {"tags": fluid, "name": "fluid", "tag_id": 1},
+            {"tags": solid, "name": "solid", "tag_id": 2},
+        ]
+    )
+    model.synchronize()
 #endregion: functions
 
 #region: su2
-with GmshOCCModel(render=True, **options) as model:
-    make_fluid(model)
-    model.dump(f"model-su2/mesh_fluid.su2")
+# with GmshOCCModel(render=True, **options) as model:
+#     make_fluid(model)
+#     model.dump(f"model-su2/mesh_fluid.su2")
 
-with GmshOCCModel(render=True, **options) as model:
-    make_solid(model)
-    model.dump(f"model-su2/mesh_solid.su2")
+# with GmshOCCModel(render=True, **options) as model:
+#     make_solid(model)
+#     model.dump(f"model-su2/mesh_solid.su2")
 #endregion: su2
+
+#region: elmer
+elmer = {**options}
+elmer["Mesh.ElementOrder"] = 2
+
+with GmshOCCModel(render=True, **elmer) as model:
+    make_full(model)
+    model.dump(f"model-elmer/mesh.msh")
+#endregion: elmer
