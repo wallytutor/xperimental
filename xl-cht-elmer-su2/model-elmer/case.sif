@@ -9,13 +9,15 @@ Simulation
   Max Output Level = 5
   Coordinate System = Cartesian
   Coordinate Mapping(3) = 1 2 3
+
   Simulation Type = Transient
-  Steady State Max Iterations = 1
+  Timestepping Method = BDF
+  BDF Order = 2
+
   Output Intervals(1) = 10
   Timestep intervals(1) = 100
   Timestep Sizes(1) = 0.1
-  Timestepping Method = BDF
-  BDF Order = 1
+
   Solver Input File = case.sif
   Post File = case.vtu
 End
@@ -71,28 +73,87 @@ Solver 2
 End
 
 Solver 1
-  Equation = Navier-Stokes
-  Procedure = "FlowSolve" "FlowSolver"
-  Variable = Flow Solution[Velocity:3 Pressure:1]
-  Exec Solver = Always
-  Stabilize = True
-  Optimize Bandwidth = True
-  Steady State Convergence Tolerance = 1.0e-5
-  Nonlinear System Convergence Tolerance = 1.0e-7
-  Nonlinear System Max Iterations = 20
-  Nonlinear System Newton After Iterations = 3
-  Nonlinear System Newton After Tolerance = 1.0e-3
-  Nonlinear System Relaxation Factor = 1
+!   Equation = Navier-Stokes
+!   Procedure = "FlowSolve" "FlowSolver"
+!   Variable = Flow Solution[Velocity:3 Pressure:1]
+!   Exec Solver = Always
+!   Stabilize = True
+!   Optimize Bandwidth = True
+!   Steady State Convergence Tolerance = 1.0e-5
+!   Nonlinear System Convergence Tolerance = 1.0e-7
+!   Nonlinear System Max Iterations = 20
+!   Nonlinear System Newton After Iterations = 3
+!   Nonlinear System Newton After Tolerance = 1.0e-3
+!   Nonlinear System Relaxation Factor = 1
+!   Linear System Solver = Iterative
+!   Linear System Iterative Method = BiCGStab
+!   Linear System Max Iterations = 500
+!   Linear System Convergence Tolerance = 1.0e-10
+!   BiCGstabl polynomial degree = 2
+!   Linear System Preconditioning = ILU0
+!   Linear System ILUT Tolerance = 1.0e-3
+!   Linear System Abort Not Converged = False
+!   Linear System Residual Output = 10
+!   Linear System Precondition Recompute = 1
+  Equation = "Stokes-Vec"
+  Procedure = "IncompressibleNSVec" "IncompressibleNSSolver"
+  Div-Curl Discretization = Logical False
+
+  Optimize Bandwidth = Logical True
+  Flow Model = Stokes
+!  Stabilization Method = String Stabilized
+
+  Linear System Abort Not Converged = Logical False
+
+  Linear System Timing = True
+  Solver Timing = True
+
+  $LinMethod = 20625100
+  $LinStr = "BiCgStab{2} + BILU1"
+
   Linear System Solver = Iterative
-  Linear System Iterative Method = BiCGStab
-  Linear System Max Iterations = 500
-  Linear System Convergence Tolerance = 1.0e-10
-  BiCGstabl polynomial degree = 2
-  Linear System Preconditioning = ILU0
+  Linear System Iterative Method = BiCGStabL
+  Bicgstabl Polynomial Degree = 2
+
+  Linear System Max Iterations = 10000
+  Linear System Convergence Tolerance = 1.0e-8
+  Linear System Preconditioning = BILU1
   Linear System ILUT Tolerance = 1.0e-3
-  Linear System Abort Not Converged = False
-  Linear System Residual Output = 10
+  Linear System Abort Not Converged = True
+  Linear System Residual Output = 20
   Linear System Precondition Recompute = 1
+
+  !Non-linear iteration settings:
+  !------------------------------
+  Nonlinear System Max Iterations = 50
+  Nonlinear System Convergence Tolerance  = 1.0e-6
+  Nonlinear System Newton After Iterations = 5
+  Nonlinear System Newton After Tolerance = 1.0e-3
+  Viscosity Newton Relaxation Factor = Real $2.0/3.0
+  Nonlinear System Consistent Norm = True
+!  Nonlinear System Relaxation Factor = Variable "nonlin iter"
+!    Real
+!      1    1.0
+!      5.0  0.5
+!      10.0 0.5
+!    End
+
+
+  ! Convergence on timelevel (not required here)
+  !---------------------------------------------
+  Steady State Convergence Tolerance = Real 1.0e-3
+
+  !Relative Integration Order = -1
+  Number of Integration Points = Integer 21 ! 21, 28, 44, 64, ...
+
+  ! 1st iteration viscosity is constant
+  Constant-Viscosity Start = Logical True
+
+! Some timing info
+!  Boundary Assembly Timing = Logical True
+!  Bulk Assembly Timing = Logical True
+!  Solver Timing = Logical True
+!  Linear System Timing = Logical True
 End
 
 Equation 1
@@ -108,25 +169,22 @@ End
 
 Material 1
   Name = "Air Hot"
-  Heat Conductivity = 0.0257
-  Compressibility Model = Perfect Gas
-  Reference Temperature = 298.15
-  Reference Pressure = 101325.0
-  Relative Permittivity = 1.00059
-  Sound speed = 343.0
-  Specific Heat Ratio = 1.4
-  Viscosity = 30.0e-06
-  Heat expansion Coefficient = 0.0
   Density = 0.40266976445272457
-  Heat Capacity = 1005.0
+  Viscosity = 30.0e-06
+  Heat Conductivity = 0.0257
+  Heat Capacity = 1013.0
+
+!   Compressibility Model = Perfect Gas
+!   Reference Temperature = 298.15
+!   Reference Pressure = 101325.0
+!   Specific Heat Ratio = 1.4
 End
 
 Material 2
   Name = "Solid Brick"
+  Density = 2800
   Heat Conductivity = 2.0
   Heat Capacity = 1000
-  Heat expansion Coefficient = 8.0e-06
-  Density = 2800
 End
 
 Initial Condition 1
@@ -160,13 +218,13 @@ Boundary Condition 3
   Name = "Inlet"
   Temperature = 873.15
   Velocity 2 = 0.0
-  External Pressure = 101325.0
   Velocity 1 = 0.0
   Velocity 3 = 10.5
+!   Pressure = 101325.0
 End
 
 Boundary Condition 4
   Target Boundaries(1) = 2
   Name = "Outlet"
-  External Pressure = 101325.0
+  Pressure = 101325.0
 End
