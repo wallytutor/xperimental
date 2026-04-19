@@ -1,8 +1,10 @@
 # -*- coding: utf-8 -*-
 import numpy as np
 import majordome_simulation.meshing as ms
-from majordome.simulation import GmshOCCModel
-from majordome.simulation import GeometricProgression
+from majordome_simulation.meshing import GmshOCCModel
+from majordome_simulation.meshing import GeometricProgression
+from majordome_simulation.meshing import RingBuilder
+from majordome_simulation.meshing import CircularCrossSection
 from ruamel.yaml import YAML
 from screeninfo import get_monitors
 
@@ -15,11 +17,10 @@ options = {
     "Geometry.Points": True,
     "Geometry.Lines": True,
     "Geometry.Surfaces": True,
-    "Mesh.CharacteristicLengthMin": 0,
-    "Mesh.CharacteristicLengthMax": 1e22,
-    # "Mesh.ColorCarousel": 2,
-    # "Mesh.SurfaceFaces": True,
-    # "Mesh.MeshSizeMax": 0.02,
+    "Mesh.CharacteristicLengthMin": 0.00,
+    "Mesh.CharacteristicLengthMax": 0.01,
+    "Mesh.ColorCarousel": 2,
+    "Mesh.SurfaceFaces": False,
     "Mesh.SaveAll": False,
     "Mesh.SaveGroupsOfNodes": True,
     "Mesh.Algorithm": 5,
@@ -32,26 +33,77 @@ data = yaml.load(open("dimensioning.yaml"))
 m_h = data["m_h"]
 D_h = data["D_h"]
 
-center_to_wall = (1 + m_h / 2) * D_h
-bnd_thickness = 0.003
+center_to_wall = (1 + m_h) * D_h / 2
 
-R_out = D_h / 2
-R_bnd = R_out - 0.003
+num_splits         = 6
+num_points_angular = 10
+rotation           = 30
+
+fluid_bl = 0.005
+solid_bl = 0.003
 
 with GmshOCCModel(render=True, **options) as model:
-    hole = ms.CircularCrossSection(
+    #region: fluid hole
+    R_out = D_h / 2
+
+    fluid_hole = ms.CircularCrossSection(
         model              = model,
         radius             = R_out,
-        boundary_thickness = bnd_thickness,
-        cell_size_boundary = 0.0001,
-        cell_size_center   = 0.00050,
-        num_points_angular = 10,
+        boundary_thickness = fluid_bl,
+        cell_size_external = 0.0001,
+        cell_size_internal = 0.0010,
+        num_points_angular = num_points_angular,
+        num_splits         = num_splits,
+        core_polygonal     = True,
+        radius_fraction    = 0.5,
+        rotation           = rotation
     )
-    # pts = ms.points_on_circle(R_bnd, num_points=8)
+    #endregion: fluid hole
 
-    ring = hole._create_ring_boundary()
-    hole._create_polygonal_core(ring.lines_in, ring.points_in)
+    #region: solid ring
+    R_out = R_out + solid_bl
+    bl = solid_bl
 
+    funcs = RingBuilder.get_progression_callbacks(
+        model, num_points_angular, bl, 0.001, 0.0001
+    )
+
+    solid_ring = RingBuilder(
+        model              = model,
+        splits             = num_splits,
+        radius_out         = R_out + solid_bl,
+        points_in          = fluid_hole.ring.points_out,
+        lines_in           = fluid_hole.ring.lines_out,
+        linker_out         = fluid_hole._add_arc,
+        callback_lines     = funcs[0],
+        callback_surfaces  = funcs[1],
+        rotation           = rotation
+    )
+    #endregion: solid ring
+
+    #region: hexagon
+    R_out = 2 * center_to_wall / np.sqrt(3)
+    bl = R_out - solid_bl - D_h / 2
+
+    arc_len = 2 * np.pi * R_out / num_splits
+    arc_len = arc_len / num_points_angular
+
+    funcs = RingBuilder.get_progression_callbacks(
+        model, num_points_angular, bl, arc_len, arc_len
+    )
+
+    solid_ring = RingBuilder(
+        model              = model,
+        splits             = num_splits,
+        radius_out         = R_out,
+        points_in          = solid_ring.points_out,
+        lines_in           = solid_ring.lines_out,
+        callback_lines     = funcs[0],
+        callback_surfaces  = funcs[1],
+        rotation           = rotation
+    )
     # model.hexagon_xy(center_to_wall, rotation=30)
+    #endregion: hexagon
+
+    model.synchronize()
     model.generate_mesh(dim=2)
-    # model.synchronize()
