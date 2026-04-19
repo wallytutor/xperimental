@@ -1,4 +1,7 @@
+**/partitioning.*/
+**/entities.sif
 **/*.boundary
 **/*.elements
 **/*.header
+**/*.names
 **/*.nodes
