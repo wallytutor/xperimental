@@ -76,7 +76,7 @@ try {
         New-Item -Path "restart" -ItemType Directory `
             -ErrorAction SilentlyContinue | Out-Null
 
-        Invoke-RunManager -Cfg "master.cfg" -WorkingDir "."
+        Invoke-RunManager -Cfg "case_master.cfg" -WorkingDir "."
     }
 } finally {
     Pop-Location

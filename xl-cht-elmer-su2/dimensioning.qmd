@@ -23,12 +23,6 @@ jupyter: python3
 ---
 
 ```{python}
-# try:
-#     ip = get_ipython()
-#     if "majordome.magic" not in ip.extension_manager.loaded:
-#         ip.run_line_magic('load_ext', 'majordome.magic')
-# except:
-#     pass
 %load_ext majordome.magic
 
 import thermocline as tc
@@ -207,6 +201,21 @@ Density of operating fluid (cold)           | {num_rho_g_c:.2f}    | kg/m³
 Density of operating fluid (hot)            | {num_rho_g_h:.2f}    | kg/m³
 Dynamic viscosity of operating fluid        | {num_mu_g_h*1e6:.2f} | uPa-s
 Surface-to-volume ratio of hexagonal cell   | {num_S_V:.3f}        | 1/m
+```
+
+```{python}
+# template_fluid = """
+# INC_TEMPERATURE_INIT   = {T}
+# INC_DENSITY_INIT       = {rho}
+# INC_VELOCITY_INIT      = (0.0, 0.0, {U})
+# MARKER_INLET           = ( fluid_inlet, {T}, {U}, 0.0, 0.0, 1.0 )
+# """
+
+# print(template_fluid.format(
+#     T=num_T_h,
+#     rho=num_rho_g_h,
+#     U=fn_U_g(*args_charging)
+# ))
 ```
 
 ```{python}

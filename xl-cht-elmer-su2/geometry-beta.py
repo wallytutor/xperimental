@@ -166,9 +166,9 @@ def make_fluid(model):
 
     model.add_physical_groups(
         surfaces=[
-            {"tags": inlet,  "name": "inlet",  "tag_id": 1},
-            {"tags": outlet, "name": "outlet", "tag_id": 2},
-            {"tags": around, "name": "around", "tag_id": 3},
+            {"tags": inlet,  "name": "fluid_inlet",     "tag_id": 1},
+            {"tags": outlet, "name": "fluid_outlet",    "tag_id": 2},
+            {"tags": around, "name": "cht_fluid_solid", "tag_id": 3},
         ],
         volumes=[
             {"tags": fluid, "name": "fluid", "tag_id": 1},
@@ -193,10 +193,10 @@ def make_solid(model):
 
     model.add_physical_groups(
         surfaces=[
-            {"tags": bottom,   "name": "bottom",   "tag_id": 3},
-            {"tags": top,      "name": "top",      "tag_id": 4},
-            {"tags": around,   "name": "around",   "tag_id": 5},
-            {"tags": symmetry, "name": "symmetry", "tag_id": 6},
+            {"tags": bottom,   "name": "solid_bottom",    "tag_id": 4},
+            {"tags": top,      "name": "solid_top",       "tag_id": 5},
+            {"tags": symmetry, "name": "solid_symmetry",  "tag_id": 6},
+            {"tags": around,   "name": "cht_solid_fluid", "tag_id": 7},
         ],
         volumes=[
             {"tags": solid, "name": "solid", "tag_id": 2},
