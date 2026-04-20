@@ -54,4 +54,50 @@ maxCo             1.0;
 
 adjustTimeStep    yes;
 
+// functions
+// {
+//     functions_fluid
+//     {
+//         region          fluid;
+//         #includeFunc    patchFlowRate(patch=fluidInlet, phi)
+//         #includeFunc    patchFlowRate(patch=fluidOutlet, phi)
+//         #includeFunc    residuals(p, U, h)
+//         weightAverageInlet
+//         {
+//             type            surfaceFieldValue;
+//             libs            ( "libfieldFunctionObjects.so" );
+//             enabled         yes;
+//             writeControl    writeTime;
+//             log             yes;
+//             writeFields     no;
+//             select          patch;
+//             patch           fluidInlet;
+//             operation       average;
+//             weightField     phi;
+//             fields          ( p U T );
+//         }
+
+//         weightAverageOutlet
+//         {
+//             type            surfaceFieldValue;
+//             libs            ( "libfieldFunctionObjects.so" );
+//             enabled         yes;
+//             writeControl    writeTime;
+//             log             yes;
+//             writeFields     no;
+//             select          patch;
+//             patch           fluidOutlet;
+//             operation       average;
+//             weightField     phi;
+//             fields          ( p U T );
+//         }
+//     }
+// }
+//
+// functions
+// {
+//     region          solid;
+//     #includeFunc    residuals(e)
+// }
+
 // ************************************************************************* //
