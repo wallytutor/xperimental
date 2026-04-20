@@ -9,23 +9,19 @@ FoamFile
 {
     format      ascii;
     class       dictionary;
-    note        "mesh decomposition control dictionary";
-    location    "system";
-    object      decomposeParDict;
+    object      RASProperties;
 }
-
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
-#include "../constant/userParameters"
+simulationType RAS;
 
-numberOfSubdomains $parallel.numberOfSubdomains;
-
-method          hierarchical;
-
-hierarchicalCoeffs
+RAS
 {
-    n           (1 1 $parallel.numberOfSubdomains);
-    order       xyz;
+    model               kEpsilon;
+
+    turbulence          on;
+
 }
+
 
 // ************************************************************************* //

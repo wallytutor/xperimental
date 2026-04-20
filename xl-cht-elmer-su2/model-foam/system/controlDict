@@ -14,42 +14,44 @@ FoamFile
 }
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
+#include "../constant/userParameters"
+
 regionSolvers
 {
     fluid           fluid;
     solid           solid;
 }
 
-startFrom       startTime;
+startFrom         startTime;
 
-startTime       0;
+startTime         0;
 
-stopAt          endTime;
+stopAt            endTime;
 
-endTime         20;
+endTime           20;
 
-deltaT          1e-3;
+deltaT            1.0e-03;
 
-writeControl    adjustableRunTime;
+writeControl      adjustableRunTime;
 
-writeInterval   1;
+writeInterval     1;
 
-purgeWrite      0;
+purgeWrite        0;
 
-writeFormat     binary;
+writeFormat       binary;
 
-writePrecision  6;
+writePrecision    6;
 
-writeCompression off;
+writeCompression  off;
 
-timeFormat      general;
+timeFormat        scientific;
 
-timePrecision   6;
+timePrecision     6;
 
 runTimeModifiable true;
 
-maxCo           1.0;
+maxCo             1.0;
 
-adjustTimeStep  yes;
+adjustTimeStep    yes;
 
 // ************************************************************************* //

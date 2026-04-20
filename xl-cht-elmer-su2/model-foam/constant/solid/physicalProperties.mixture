@@ -8,40 +8,42 @@
 FoamFile
 {
     format      ascii;
-    class       volScalarField;
-    location    "0/fluid";
-    object      T;
+    class       dictionary;
+    location    "constant/metal";
+    object      physicalProperties;
 }
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
-
-dimensions      [ 0 0 0 1 0 0 0 ];
-
-#include "../constant/userParameters"
-
-internalField   uniform $fluid.inletTemperature;
-
-boundaryField
+thermoType
 {
-    #includeEtc "caseDicts/setConstraintTypes"
-
-    fluidInlet
-    {
-        type            fixedValue;
-        value           $fluid.inletTemperature;
-    }
-    fluidOutlet
-    {
-        type            inletOutlet;
-        value           $fluid.inletTemperature;
-        inletValue      $fluid.inletTemperature;
-    }
-    fluid_to_solid
-    {
-        type            coupledTemperature;
-        value           $fluid.inletTemperature;
-    }
+    type            heSolidThermo;
+    mixture         pureMixture;
+    transport       constIsoSolid;
+    thermo          eConst;
+    equationOfState rhoConst;
+    specie          specie;
+    energy          sensibleInternalEnergy;
 }
 
+mixture
+{
+    specie
+    {
+        molWeight       101.6;
+    }
+    equationOfState
+    {
+        rho             2800;
+    }
+    thermodynamics
+    {
+        hf              0;
+        Cv              1000;
+    }
+    transport
+    {
+        kappa           2.0;
+    }
+}
 
 // ************************************************************************* //

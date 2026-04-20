@@ -9,7 +9,7 @@ FoamFile
 {
     format      ascii;
     class       volScalarField;
-    location    "0/metal";
+    location    "0/solid";
     object      T;
 }
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
@@ -22,16 +22,11 @@ boundaryField
 {
     #includeEtc "caseDicts/setConstraintTypes"
 
-    "metal(Inlet|Outlet|External)"
+    "solid(Top|Bottom|Symmetry)"
     {
         type            zeroGradient;
     }
-    metal_to_fluid
-    {
-        type            coupledTemperature;
-        value           $internalField;
-    }
-    metal_to_heater
+    solid_to_fluid
     {
         type            coupledTemperature;
         value           $internalField;

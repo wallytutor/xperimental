@@ -5,16 +5,18 @@
     \\  /    A nd           | Version:  13
      \\/     M anipulation  |
 \*---------------------------------------------------------------------------*/
-FoamFile
-{
-    format      ascii;
-    class       uniformDimensionedVectorField;
-    location    "constant/fluid";
-    object      g;
-}
-// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
-dimensions      [0 1 -2 0 0 0 0];
-value           (0 0 -9.81);
+fluid
+{
+    inletTemperature 873.15;
+
+    inletVelocity 10.5;
+}
+
+
+parallel
+{
+    numberOfSubdomains 4;
+}
 
 // ************************************************************************* //

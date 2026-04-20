@@ -16,7 +16,9 @@ FoamFile
 
 dimensions      [ 0 1 -1 0 0 0 0 ];
 
-internalField   uniform (0 0 1e-3);
+#include "../constant/userParameters"
+
+internalField   uniform (0 0 $fluid.inletVelocity);
 
 boundaryField
 {
@@ -25,14 +27,14 @@ boundaryField
     fluidInlet
     {
         type            fixedValue;
-        value           uniform (0 0 1e-3);
+        value           uniform (0 0 $fluid.inletVelocity);
     }
     fluidOutlet
     {
         type            pressureInletOutletVelocity;
         value           $internalField;
     }
-    fluid_to_metal
+    fluid_to_solid
     {
         type            noSlip;
     }

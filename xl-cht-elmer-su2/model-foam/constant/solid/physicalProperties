@@ -9,43 +9,29 @@ FoamFile
 {
     format      ascii;
     class       dictionary;
-    location    "constant/metal";
+    location    "constant/cylinderHead";
     object      physicalProperties;
 }
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
-thermoType
+thermoType  constSolidThermo;
+
+rho
 {
-    type            heSolidThermo;
-    mixture         pureMixture;
-    transport       constIsoSolid;
-    thermo          eConst;
-    equationOfState rhoConst;
-    specie          specie;
-    energy          sensibleInternalEnergy;
+    type        uniform;
+    value       2800.0;
 }
 
-mixture
+Cv
 {
-    // Aluminium
+    type        uniform;
+    value       1000.0;
+}
 
-    specie
-    {
-        molWeight       27;
-    }
-    equationOfState
-    {
-        rho             2700;
-    }
-    transport
-    {
-        kappa           200;
-    }
-    thermodynamics
-    {
-        hf              0;
-        Cv              900;
-    }
+kappa
+{
+    type        uniform;
+    value       2.0;
 }
 
 // ************************************************************************* //
