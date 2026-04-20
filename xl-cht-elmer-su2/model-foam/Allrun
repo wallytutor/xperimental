@@ -3,6 +3,8 @@
 # Run from this directory
 cd ${0%/*} || exit 1
 
+initDir="0.000000e+00"
+
 meshFile="mesh.msh"
 meshBasic="constant/polyMesh/"
 meshSolid="constant/solid/polyMesh/"
@@ -15,6 +17,9 @@ function cleanAll {
     rm -rf "${meshSolid}"
     rm -rf "${meshFluid}"
     rm -rf "constant/cellToRegion"
+    rm -rf "${initDir}/cellToRegion"
+    rm -rf "${initDir}/fluid/cellToRegion"
+    rm -rf "${initDir}/solid/cellToRegion"
 }
 
 function privateConvertMesh {
@@ -42,9 +47,9 @@ function ensureMesh {
 }
 
 # cleanAll
-ensureMesh
+# ensureMesh
 
-# runApplication decomposePar -allRegions
+# decomposePar -allRegions  > log.6.decomposePar 2>&1
 # runParallel foamMultiRun
 # runApplication reconstructPar -allRegions
 

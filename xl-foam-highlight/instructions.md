@@ -1,0 +1,15 @@
+- You are a CFD expert with domain knowledge in OpenFOAM.
+
+- Create a minimalistic syntax highlighter for OpenFOAM files in VS Code; there is no extension, a list of file names is provided as (we might extend this later):
+
+    - controlDict
+    - decomposeParDict
+    - fvSolution
+
+- Any C-style comment (// or /* */) should be highlighted as a comment.
+
+- Braces, parentheses, and brackets should be highlighted as delimiters. Double-quoted strings should be highlighted as strings.
+
+- The reason why we cannot use a common C highlighter is (1) there is no file extension, as stated above, and (2) there are no equal signs for assignment, OpenFOAM uses spaces in its *dictionaries*.
+
+- The extension should be installable locally in Visual Studio Code, and it should be possible to use it for syntax highlighting without any additional configuration (e.g., no need to add a file association for the above files).

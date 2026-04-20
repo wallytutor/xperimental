@@ -1,0 +1,55 @@
+{
+  "name": "xl-foam-highlight",
+  "displayName": "OpenFOAM Dictionary Highlight",
+  "description": "Minimal syntax highlighting for OpenFOAM dictionary files.",
+  "version": "0.0.1",
+  "publisher": "xperimental",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "keywords": [
+    "openfoam",
+    "cfd",
+    "dictionary",
+    "syntax",
+    "highlight"
+  ],
+  "contributes": {
+    "languages": [
+      {
+        "id": "openfoam-dict",
+        "aliases": [
+          "OpenFOAM Dictionary",
+          "openfoam-dict"
+        ],
+        "filenames": [
+            "cellToRegion",
+            "p",
+            "p_rgh",
+            "U",
+            "T",
+            "g",
+            "momentumTransport",
+            "physicalProperties",
+            "controlDict",
+            "decomposeParDict",
+            "fvSolution",
+            "fvSchemes",
+            "userParameters"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "openfoam-dict",
+        "scopeName": "source.openfoam-dict",
+        "path": "./syntaxes/openfoam.tmLanguage.json"
+      }
+    ]
+  }
+}
