@@ -11,7 +11,6 @@ wsl --install Ubuntu-24.04
 - [OpenFOAM (v13)](https://openfoam.org/download/13-ubuntu/)
 
 ```bash
-
 sudo sh -c "wget -O - https://dl.openfoam.org/gpg.key > /etc/apt/trusted.gpg.d/openfoam.asc"
 sudo add-apt-repository http://dl.openfoam.org/ubuntu
 

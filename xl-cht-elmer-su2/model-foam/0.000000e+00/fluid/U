@@ -38,9 +38,9 @@ boundaryField
     {
         type            noSlip;
     }
-    wedgeFluid
+    "fluid(Left|Right)|solid(Left|Right)"
     {
-        type            wedge;
+        type            cyclic;
     }
 }
 

@@ -27,9 +27,9 @@ boundaryField
         type            calculated;
         value           $internalField;
     }
-    wedgeFluid
+    "fluid(Left|Right)|solid(Left|Right)"
     {
-        type            wedge;
+        type            cyclic;
     }
 }
 

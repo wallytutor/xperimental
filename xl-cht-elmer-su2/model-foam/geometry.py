@@ -63,7 +63,7 @@ with GmshOCCModel(render=True, **options) as model:
     if wedge_only:
         core_polygonal    = True
         core_unstructured = False
-        radius_fraction   = 0.25
+        radius_fraction   = 0.5
     else:
         core_polygonal    = False
         core_unstructured = True
@@ -143,7 +143,7 @@ with GmshOCCModel(render=True, **options) as model:
     model.synchronize()
     #endregion: create volume
 
-    # #region: physical groups
+    #region: physical groups
     extruded = ms.get_extrusion_tags(new_tags, 2)
     extruded_super, extruded_ndim = extruded
 
@@ -178,18 +178,22 @@ with GmshOCCModel(render=True, **options) as model:
         inlet      = [s[1] for s in base[:3]]
         bottom     = [base[3][1]]
         symmetry   = [34]
-        wedgeFluid = [21, 22, 24, 25, 28, 29]
-        wedgeSolid = [32, 33]
+        fluidLeft  = [21, 25, 29]
+        fluidRight = [22, 24, 28]
+        solidLeft  = [33]
+        solidRight = [32]
 
         model.add_physical_groups(
             surfaces=[
-                {"tags": inlet,      "name": "fluidInlet",     "tag_id": 10},
-                {"tags": outlet,     "name": "fluidOutlet",    "tag_id": 20},
-                {"tags": bottom,     "name": "solidBottom",    "tag_id": 30},
-                {"tags": top,        "name": "solidTop",       "tag_id": 40},
-                {"tags": symmetry,   "name": "solidSymmetry",  "tag_id": 50},
-                {"tags": wedgeFluid, "name": "wedgeFluid",     "tag_id": 60},
-                {"tags": wedgeSolid, "name": "wedgeSolid",     "tag_id": 70},
+                {"tags": inlet,      "name": "fluidInlet",    "tag_id": 10},
+                {"tags": outlet,     "name": "fluidOutlet",   "tag_id": 20},
+                {"tags": bottom,     "name": "solidBottom",   "tag_id": 30},
+                {"tags": top,        "name": "solidTop",      "tag_id": 40},
+                {"tags": symmetry,   "name": "solidSymmetry", "tag_id": 50},
+                {"tags": fluidLeft,  "name": "fluidLeft",     "tag_id": 60},
+                {"tags": fluidRight, "name": "fluidRight",    "tag_id": 61},
+                {"tags": solidLeft,  "name": "solidLeft",     "tag_id": 70},
+                {"tags": solidRight, "name": "solidRight",    "tag_id": 71},
             ],
             volumes=[
                 {"tags": fluid, "name": "fluid", "tag_id": 100},
@@ -198,7 +202,7 @@ with GmshOCCModel(render=True, **options) as model:
         )
 
     model.synchronize()
-    # #endregion: physical groups
+    #endregion: physical groups
 
     model.generate_mesh(dim=2)
     model.generate_mesh(dim=3)

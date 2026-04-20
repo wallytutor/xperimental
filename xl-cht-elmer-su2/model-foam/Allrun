@@ -22,6 +22,20 @@ function cleanAll {
     rm -rf "${initDir}/solid/cellToRegion"
 }
 
+function privateSetCyclicPatch {
+    local region="$1"
+    local patch="$2"
+    local neighbourPatch="$3"
+
+    foamDictionary constant/"${region}"/polyMesh/boundary \
+        -entry entry0/"${patch}"/type \
+        -set cyclic
+
+    foamDictionary constant/"${region}"/polyMesh/boundary \
+        -entry entry0/"${patch}"/neighbourPatch \
+        -set "${neighbourPatch}"
+}
+
 function privatePatches {
     foamDictionary constant/solid/polyMesh/boundary \
         -entry entry0/solidBottom/type \
@@ -35,13 +49,11 @@ function privatePatches {
         -entry entry0/solidSymmetry/type \
         -set wall
 
-    foamDictionary constant/solid/polyMesh/boundary \
-        -entry entry0/wedgeSolid/type \
-        -set cyclic
+    privateSetCyclicPatch "solid" "solidLeft"  "solidRight"
+    privateSetCyclicPatch "solid" "solidRight" "solidLeft"
 
-    foamDictionary constant/fluid/polyMesh/boundary \
-        -entry entry0/wedgeFluid/type \
-        -set cyclic
+    privateSetCyclicPatch "fluid" "fluidLeft"  "fluidRight"
+    privateSetCyclicPatch "fluid" "fluidRight" "fluidLeft"
 }
 
 function privateConvertMesh {

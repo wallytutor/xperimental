@@ -16,8 +16,8 @@ FoamFile
 
 dimensions      [ 1 -1 -2 0 0 0 0 ];
 
-// p - rho*g*h ~ 0
-internalField   uniform 0.0;
+// p - rho*g*h ~ 0???
+internalField   uniform 101325.0;
 
 boundaryField
 {
@@ -33,9 +33,9 @@ boundaryField
         type            fixedValue;
         value           $internalField;
     }
-    wedgeFluid
+    "fluid(Left|Right)|solid(Left|Right)"
     {
-        type            wedge;
+        type            cyclic;
     }
 }
 

@@ -33,9 +33,9 @@ boundaryField
         type            coupledTemperature;
         value           $internalField;
     }
-    wedgeSolid
+    "fluid(Left|Right)|solid(Left|Right)"
     {
-        type            wedge;
+        type            cyclic;
     }
 }
 
