@@ -41,6 +41,10 @@ boundaryField
         type            coupledTemperature;
         value           uniform $fluidTemperature;
     }
+    wedgeFluid
+    {
+        type            wedge;
+    }
 }
 
 

@@ -22,15 +22,7 @@ function cleanAll {
     rm -rf "${initDir}/solid/cellToRegion"
 }
 
-function privateConvertMesh {
-    if [ ! -d "${meshBasic}" ]; then
-        gmshToFoam "${meshFile}" > log.1.gmshToFoam 2>&1
-        renumberMesh > log.2.renumberMesh 2>&1
-    fi
-
-    splitMeshRegions -cellZones > log.3.splitMeshRegions 2>&1
-    rm -rf "${meshBasic}"
-
+function privatePatches {
     foamDictionary constant/solid/polyMesh/boundary \
         -entry entry0/solidBottom/type \
         -set wall
@@ -42,6 +34,26 @@ function privateConvertMesh {
     foamDictionary constant/solid/polyMesh/boundary \
         -entry entry0/solidSymmetry/type \
         -set wall
+
+    foamDictionary constant/solid/polyMesh/boundary \
+        -entry entry0/wedgeSolid/type \
+        -set wedge
+
+    foamDictionary constant/fluid/polyMesh/boundary \
+        -entry entry0/wedgeFluid/type \
+        -set wedge
+}
+
+function privateConvertMesh {
+    if [ ! -d "${meshBasic}" ]; then
+        gmshToFoam "${meshFile}" > log.1.gmshToFoam 2>&1
+        renumberMesh > log.2.renumberMesh 2>&1
+    fi
+
+    splitMeshRegions -cellZones > log.3.splitMeshRegions 2>&1
+    # rm -rf "${meshBasic}"
+
+    privatePatches
 
     checkMesh -region fluid > log.4.checkMeshFluid 2>&1
     checkMesh -region solid > log.5.checkMeshSolid 2>&1
@@ -58,8 +70,8 @@ function ensureMesh {
     fi
 }
 
-# cleanAll
-# ensureMesh
+cleanAll
+ensureMesh
 
 # decomposePar -allRegions  > log.6.decomposePar 2>&1
 # runParallel foamMultiRun
