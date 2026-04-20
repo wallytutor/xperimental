@@ -279,12 +279,12 @@ def mesh_foam():
 
         model.add_physical_groups(
             surfaces=[
-                {"tags": inlet,    "name": "fluid_inlet",     "tag_id": 1},
-                {"tags": outlet,   "name": "fluid_outlet",    "tag_id": 2},
-                {"tags": bottom,   "name": "solid_bottom",    "tag_id": 3},
-                {"tags": top,      "name": "solid_top",       "tag_id": 4},
-                {"tags": symmetry, "name": "solid_symmetry",  "tag_id": 5},
-                {"tags": coupled,  "name": "coupled",         "tag_id": 6},
+                {"tags": inlet,    "name": "fluidInlet",     "tag_id": 1},
+                {"tags": outlet,   "name": "fluidOutlet",    "tag_id": 2},
+                {"tags": bottom,   "name": "solidBottom",    "tag_id": 3},
+                {"tags": top,      "name": "solidTop",       "tag_id": 4},
+                {"tags": symmetry, "name": "solidSymmetry",  "tag_id": 5},
+                {"tags": coupled,  "name": "coupledCht",     "tag_id": 6},
             ],
             volumes=[
                 {"tags": fluid, "name": "fluid", "tag_id": 1},
