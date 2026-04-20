@@ -5,25 +5,83 @@
     \\  /    A nd           | Version:  13
      \\/     M anipulation  |
 \*---------------------------------------------------------------------------*/
+//
+// "0.orig/solid/T"
+//
 FoamFile
 {
-    format      ascii;
-    class       volScalarField;
-    location    "0/solid";
-    object      T;
+    format          ascii;
+    class           volScalarField;
+    location        "0/solid";
+    object          T;
 }
-// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
 dimensions      [ 0 0 0 1 0 0 0 ];
 
-#include "../../constant/userParameters"
+fluidTemperature 873.15;
 
-internalField   uniform $solidTemperature;
+solidTemperature 298.15;
+
+inletVelocity   10.5;
+
+nProcs          4;
+
+internalField   uniform 298.15;
 
 boundaryField
 {
-    #includeEtc "caseDicts/setConstraintTypes"
-
+    cyclic
+    {
+        type            cyclic;
+    }
+    cyclicSlip
+    {
+        type            cyclicSlip;
+    }
+    nonConformalCyclic
+    {
+        type            nonConformalCyclic;
+        value           uniform 298.15;
+    }
+    nonConformalError
+    {
+        type            nonConformalError;
+    }
+    empty
+    {
+        type            empty;
+    }
+    processor
+    {
+        type            processor;
+        value           uniform 298.15;
+    }
+    processorCyclic
+    {
+        type            processorCyclic;
+        value           uniform 298.15;
+    }
+    nonConformalProcessorCyclic
+    {
+        type            nonConformalProcessorCyclic;
+        value           uniform 298.15;
+    }
+    symmetryPlane
+    {
+        type            symmetryPlane;
+    }
+    symmetry
+    {
+        type            symmetry;
+    }
+    wedge
+    {
+        type            wedge;
+    }
+    internal
+    {
+        type            internal;
+    }
     "solid(Top|Bottom|Symmetry)"
     {
         type            zeroGradient;
@@ -31,7 +89,7 @@ boundaryField
     solid_to_fluid
     {
         type            coupledTemperature;
-        value           $internalField;
+        value           uniform 298.15;
     }
     "fluid(Left|Right)|solid(Left|Right)"
     {

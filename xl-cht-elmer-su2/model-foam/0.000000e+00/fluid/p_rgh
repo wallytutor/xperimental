@@ -5,38 +5,90 @@
     \\  /    A nd           | Version:  13
      \\/     M anipulation  |
 \*---------------------------------------------------------------------------*/
+//
+// "0.orig/fluid/p_rgh"
+//
 FoamFile
 {
-    format      ascii;
-    class       volScalarField;
-    location    "0/fluid";
-    object      p_rgh;
+    format          ascii;
+    class           volScalarField;
+    location        "0/fluid";
+    object          p_rgh;
 }
-// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
 dimensions      [ 1 -1 -2 0 0 0 0 ];
 
-// p - rho*g*h ~ 0???
-internalField   uniform 101325.0;
+internalField   uniform 101325;
 
 boundaryField
 {
-    #includeEtc "caseDicts/setConstraintTypes"
-
+    cyclic
+    {
+        type            cyclic;
+    }
+    cyclicSlip
+    {
+        type            cyclicSlip;
+    }
+    nonConformalCyclic
+    {
+        type            nonConformalCyclic;
+        value           uniform 101325;
+    }
+    nonConformalError
+    {
+        type            nonConformalError;
+    }
+    empty
+    {
+        type            empty;
+    }
+    processor
+    {
+        type            processor;
+        value           uniform 101325;
+    }
+    processorCyclic
+    {
+        type            processorCyclic;
+        value           uniform 101325;
+    }
+    nonConformalProcessorCyclic
+    {
+        type            nonConformalProcessorCyclic;
+        value           uniform 101325;
+    }
+    symmetryPlane
+    {
+        type            symmetryPlane;
+    }
+    symmetry
+    {
+        type            symmetry;
+    }
+    wedge
+    {
+        type            wedge;
+    }
+    internal
+    {
+        type            internal;
+    }
     ".*"
     {
         type            fixedFluxPressure;
-        value           $internalField;
+        value           uniform 101325;
     }
     fluidOutlet
     {
         type            fixedValue;
-        value           $internalField;
+        value           uniform 101325;
     }
     "fluid(Left|Right)|solid(Left|Right)"
     {
         type            cyclic;
     }
 }
+
 
 // ************************************************************************* //
