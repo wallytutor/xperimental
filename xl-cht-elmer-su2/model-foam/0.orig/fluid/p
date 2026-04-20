@@ -22,6 +22,11 @@ boundaryField
 {
     #includeEtc "caseDicts/setConstraintTypes"
 
+    fluidOutlet
+    {
+        type            fixedValue;
+        value           $internalField;
+    }
     ".*"
     {
         type            calculated;
