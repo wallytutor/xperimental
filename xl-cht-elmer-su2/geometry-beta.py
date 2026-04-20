@@ -249,6 +249,8 @@ def mesh_foam():
     conf = {**options}
     conf["Mesh.ElementOrder"] = 1
     conf["Mesh.MshFileVersion"] = 2.2
+    conf["Mesh.SaveAll"] = False
+    conf["Mesh.SaveGroupsOfNodes"] = False
 
     with GmshOCCModel(render=True, **conf) as model:
         hole, hexagon = make_base(model)
@@ -284,7 +286,7 @@ def mesh_foam():
                 {"tags": bottom,   "name": "solidBottom",    "tag_id": 3},
                 {"tags": top,      "name": "solidTop",       "tag_id": 4},
                 {"tags": symmetry, "name": "solidSymmetry",  "tag_id": 5},
-                {"tags": coupled,  "name": "coupledCht",     "tag_id": 6},
+                # {"tags": coupled,  "name": "coupledCht",     "tag_id": 6},
             ],
             volumes=[
                 {"tags": fluid, "name": "fluid", "tag_id": 1},
@@ -293,6 +295,7 @@ def mesh_foam():
         )
         model.synchronize()
         model.dump(f"model-foam/mesh.msh")
+        # model.dump(f"model-foam/mesh.unv")
 #endregion: functions
 
 #region: su2
