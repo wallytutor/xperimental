@@ -31,6 +31,18 @@ function privateConvertMesh {
     splitMeshRegions -cellZones > log.3.splitMeshRegions 2>&1
     rm -rf "${meshBasic}"
 
+    foamDictionary constant/solid/polyMesh/boundary \
+        -entry entry0/solidBottom/type \
+        -set wall
+
+    foamDictionary constant/solid/polyMesh/boundary \
+        -entry entry0/solidTop/type \
+        -set wall
+
+    foamDictionary constant/solid/polyMesh/boundary \
+        -entry entry0/solidSymmetry/type \
+        -set wall
+
     checkMesh -region fluid > log.4.checkMeshFluid 2>&1
     checkMesh -region solid > log.5.checkMeshSolid 2>&1
 }
