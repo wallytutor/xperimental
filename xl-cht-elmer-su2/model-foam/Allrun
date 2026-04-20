@@ -33,26 +33,26 @@ function privateSetCyclicPatch {
     local patch="$2"
     local neighbourPatch="$3"
 
-    foamDictionary constant/"${region}"/polyMesh/boundary \
-        -entry entry0/"${patch}"/type \
+    foamDictionary "constant/${region}/polyMesh/boundary" \
+        -entry "entry0/${patch}/type" \
         -set cyclic
 
-    foamDictionary constant/"${region}"/polyMesh/boundary \
-        -entry entry0/"${patch}"/neighbourPatch \
+    foamDictionary "constant/${region}/polyMesh/boundary" \
+        -entry "entry0/${patch}/neighbourPatch" \
         -set "${neighbourPatch}"
 }
 
 function privatePatches {
-    foamDictionary constant/solid/polyMesh/boundary \
-        -entry entry0/solidBottom/type \
+    foamDictionary "constant/solid/polyMesh/boundary" \
+        -entry "entry0/solidBottom/type" \
         -set wall
 
-    foamDictionary constant/solid/polyMesh/boundary \
-        -entry entry0/solidTop/type \
+    foamDictionary "constant/solid/polyMesh/boundary" \
+        -entry "entry0/solidTop/type" \
         -set wall
 
-    foamDictionary constant/solid/polyMesh/boundary \
-        -entry entry0/solidSymmetry/type \
+    foamDictionary "constant/solid/polyMesh/boundary" \
+        -entry "entry0/solidSymmetry/type" \
         -set wall
 
     privateSetCyclicPatch "solid" "solidLeft"  "solidRight"
@@ -68,13 +68,17 @@ function privateConvertMesh {
         renumberMesh > log.2.renumberMesh 2>&1
     fi
 
-    splitMeshRegions -cellZones > log.3.splitMeshRegions 2>&1
-    # rm -rf "${meshBasic}"
+    createPatch -overwrite > log.3.createPatch 2>&1
+    splitMeshRegions -cellZones > log.4.splitMeshRegions 2>&1
+    rm -rf "${meshBasic}"
 
-    privatePatches
+    # When using createPatch this is not required if you give new names
+    # but as we are keeping original names you need this fix.
+    # Update: better rename, otherwise the error is still there...
+    # privatePatches
 
-    checkMesh -region fluid > log.4.checkMeshFluid 2>&1
-    checkMesh -region solid > log.5.checkMeshSolid 2>&1
+    checkMesh -region fluid > log.5.checkMeshFluid 2>&1
+    checkMesh -region solid > log.6.checkMeshSolid 2>&1
 }
 
 function ensureMesh {
@@ -89,7 +93,7 @@ function ensureMesh {
 }
 
 cleanAll
-# ensureMesh
+ensureMesh
 
 mkdir -p "${initDir}/fluid"
 mkdir -p "${initDir}/solid"
@@ -99,7 +103,7 @@ privateExpandField "fluid" "U"
 privateExpandField "fluid" "T"
 privateExpandField "solid" "T"
 
-# decomposePar -allRegions  > log.6.decomposePar 2>&1
+# decomposePar -allRegions  > log.7.decomposePar 2>&1
 # runParallel foamMultiRun
 # runApplication reconstructPar -allRegions
 
