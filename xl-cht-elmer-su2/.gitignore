@@ -26,5 +26,6 @@ model-su2/log.*
 model-su2/*.log
 
 # Foam model:
+*.foam
 **/polyMesh/*
 cellToRegion
