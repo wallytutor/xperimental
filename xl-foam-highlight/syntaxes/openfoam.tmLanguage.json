@@ -12,7 +12,13 @@
       "include": "#dictionaryBlock"
     },
     {
+      "include": "#strings"
+    },
+    {
       "include": "#dictionaryEntry"
+    },
+    {
+      "include": "#variables"
     },
     {
       "include": "#booleans"
@@ -53,12 +59,16 @@
           "match": "^\\s*([A-Za-z_][A-Za-z0-9_.-]*)\\s*(\\{)",
           "captures": {
             "1": {
-              "name": "entity.name.section.openfoam"
+              "name": "variable.other.key.openfoam"
             },
             "2": {
               "name": "punctuation.section.block.begin.openfoam"
             }
           }
+        },
+        {
+          "name": "variable.other.key.openfoam",
+          "match": "^\\s*([A-Za-z_][A-Za-z0-9_.-]*)\\s*$"
         }
       ]
     },
@@ -66,18 +76,62 @@
       "patterns": [
         {
           "name": "meta.entry.dictionary.openfoam",
-          "match": "^\\s*([A-Za-z_][A-Za-z0-9_.-]*)\\s+([^;{}]+?)\\s*(;)",
-          "captures": {
+          "begin": "^\\s*([A-Za-z_][A-Za-z0-9_.-]*)(\\s+)(?=[^\\n;{}]*;)",
+          "beginCaptures": {
             "1": {
               "name": "variable.other.key.openfoam"
-            },
-            "2": {
-              "name": "string.unquoted.value.openfoam"
-            },
-            "3": {
+            }
+          },
+          "end": "(;)",
+          "endCaptures": {
+            "1": {
               "name": "punctuation.terminator.statement.openfoam"
             }
-          }
+          },
+          "patterns": [
+            {
+              "include": "#strings"
+            },
+            {
+              "include": "#numbers"
+            },
+            {
+              "include": "#variables"
+            },
+            {
+              "include": "#booleans"
+            },
+            {
+              "include": "#delimiters"
+            },
+            {
+              "include": "#rightValues"
+            }
+          ]
+        }
+      ]
+    },
+    "rightValues": {
+      "patterns": [
+        {
+          "name": "constant.other.value.openfoam",
+          "match": "\\b[A-Za-z_][A-Za-z0-9_.-]*\\b"
+        }
+      ]
+    },
+    "variables": {
+      "patterns": [
+        {
+          "name": "variable.other.openfoam",
+          "match": "\\$[A-Za-z_][A-Za-z0-9_]*"
+        }
+      ]
+    },
+    "strings": {
+      "patterns": [
+        {
+          "name": "string.quoted.double.openfoam",
+          "match": "\"(?:\\\\.|[^\"\\\\])*\""
         }
       ]
     },

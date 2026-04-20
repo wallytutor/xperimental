@@ -27,18 +27,30 @@
           "openfoam-dict"
         ],
         "filenames": [
+            "boundary",
+            "cellRegionAddressing",
             "cellToRegion",
+            "cellZones",
+            "faceRegionAddressing",
+            "faces",
+            "neighbour",
+            "owner",
+            "pointRegionAddressing",
+            "points",
+
             "p",
             "p_rgh",
             "U",
             "T",
             "g",
+
             "momentumTransport",
             "physicalProperties",
             "controlDict",
             "decomposeParDict",
             "fvSolution",
             "fvSchemes",
+
             "userParameters"
         ],
         "configuration": "./language-configuration.json"

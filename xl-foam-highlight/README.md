@@ -19,6 +19,8 @@ The extension auto-detects these filenames with no manual file association:
   - braces `{}`
   - brackets `[]`
   - parentheses `()`
+- Double-quoted strings:
+  - `"system"`
 - Dictionary entries using OpenFOAM-style space-separated assignment and `;` terminators
 
 ## Install locally
