@@ -27,7 +27,7 @@ boundaryField
         type            calculated;
         value           $internalField;
     }
-    "fluid(Left|Right)|solid(Left|Right)"
+    "cyclic.*"
     {
         type            cyclic;
     }

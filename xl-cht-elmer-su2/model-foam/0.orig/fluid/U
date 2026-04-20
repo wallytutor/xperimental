@@ -38,7 +38,7 @@ boundaryField
     {
         type            noSlip;
     }
-    "fluid(Left|Right)|solid(Left|Right)"
+    "cyclic.*"
     {
         type            cyclic;
     }
