@@ -54,10 +54,21 @@ fluid_bl_int = 0.0005
 solid_bl_tot = R_out_solid - R_out_fluid
 solid_bl_ext = 0.0050
 solid_bl_int = 0.0001
+
+wedge_only = True
 #endregion: parameters
 
 with GmshOCCModel(render=True, **options) as model:
     #region: fluid hole
+    if wedge_only:
+        core_polygonal    = True
+        core_unstructured = False
+        radius_fraction   = 0.25
+    else:
+        core_polygonal    = False
+        core_unstructured = True
+        radius_fraction   = 0.5
+
     fluid_hole = CircularCrossSection(
         model              = model,
         radius             = R_out_fluid,
@@ -66,13 +77,14 @@ with GmshOCCModel(render=True, **options) as model:
         cell_size_internal = fluid_bl_int,
         num_points_angular = num_points_angular,
         num_splits         = num_splits,
-        core_unstructured  = True,
-        core_polygonal     = False,
-        radius_fraction    = 0.5,
+        core_unstructured  = core_unstructured,
+        core_polygonal     = core_polygonal,
+        radius_fraction    = radius_fraction,
         rotation           = rotation
     )
 
     hole = fluid_hole.ring
+    core = fluid_hole.core
     model.synchronize()
     #endregion: fluid hole
 
@@ -80,7 +92,7 @@ with GmshOCCModel(render=True, **options) as model:
     funcs = RingBuilder.get_progression_callbacks(
         model, num_points_angular, solid_bl_tot, solid_bl_ext, solid_bl_int)
 
-    hexagon = RingBuilder(
+    hexa = RingBuilder(
         model              = model,
         splits             = num_splits,
         radius_out         = R_out_solid,
@@ -94,42 +106,99 @@ with GmshOCCModel(render=True, **options) as model:
     #endregion: hexagon-alt
 
     #region: create volume
-    base  = [(2, t) for t in hole.surface_tags]
-    base += [(2, t) for t in hexagon.surface_tags]
+    if not wedge_only:
+        base  = [(2, t) for t in fluid_hole.surfaces]
+        base += [(2, t) for t in hexa.surface_tags]
+    else:
+        # TODO add API to access this:
+        p_orig = fluid_hole._p_origin
+
+        p0 = core.points_in[-1]
+        p1 = core.points_in[0]
+
+        l0 = core.lines_in[-1]
+        l1 = model.add_line(p1, p_orig)
+        l2 = model.add_line(p_orig, p0)
+
+        loop = model.add_curve_loop([l0, l1, l2])
+        surf = model.add_plane_surface([loop])
+        model.synchronize()
+
+        base = [(2, surf),
+                (2, core.surface_tags[-1]),
+                (2, hole.surface_tags[-1]),
+                (2, hexa.surface_tags[-1])]
+
+        removes  = core.surface_tags[:-1]
+        removes += hole.surface_tags[:-1]
+        removes += hexa.surface_tags[:-1]
+        model.remove([(2, item) for item in removes])
+        model.synchronize()
+
+        model.set_transfinite_curve(l1, 5)
+        model.set_transfinite_curve(l2, 5)
 
     opts = dict(numElements=[n_layers], recombine=True)
     new_tags = model.extrude(base, 0, 0, h_h, **opts)
     model.synchronize()
     #endregion: create volume
 
-    #region: physical groups
+    # #region: physical groups
     extruded = ms.get_extrusion_tags(new_tags, 2)
     extruded_super, extruded_ndim = extruded
 
-    fluid    = extruded_super[:7]
-    solid    = extruded_super[7:]
-    outlet   = extruded_ndim[:7]
-    top      = extruded_ndim[7:]
-    inlet    = hole.surface_tags
-    bottom   = hexagon.surface_tags
-    symmetry = [41, 44, 47, 50, 53, 55]
-    # coupled  = [17, 21, 25, 29, 33, 36]
+    if not wedge_only:
+        fluid    = extruded_super[:7]
+        solid    = extruded_super[7:]
+        outlet   = extruded_ndim[:7]
+        top      = extruded_ndim[7:]
+        inlet    = hole.surface_tags
+        bottom   = hexa.surface_tags
+        symmetry = [41, 44, 47, 50, 53, 55]
+        # coupled  = [17, 21, 25, 29, 33, 36]
 
-    model.add_physical_groups(
-        surfaces=[
-            {"tags": inlet,    "name": "fluidInlet",     "tag_id": 10},
-            {"tags": outlet,   "name": "fluidOutlet",    "tag_id": 20},
-            {"tags": bottom,   "name": "solidBottom",    "tag_id": 30},
-            {"tags": top,      "name": "solidTop",       "tag_id": 40},
-            {"tags": symmetry, "name": "solidSymmetry",  "tag_id": 50},
-        ],
-        volumes=[
-            {"tags": fluid, "name": "fluid", "tag_id": 100},
-            {"tags": solid, "name": "solid", "tag_id": 200},
-        ]
-    )
+        model.add_physical_groups(
+            surfaces=[
+                {"tags": inlet,    "name": "fluidInlet",     "tag_id": 10},
+                {"tags": outlet,   "name": "fluidOutlet",    "tag_id": 20},
+                {"tags": bottom,   "name": "solidBottom",    "tag_id": 30},
+                {"tags": top,      "name": "solidTop",       "tag_id": 40},
+                {"tags": symmetry, "name": "solidSymmetry",  "tag_id": 50},
+            ],
+            volumes=[
+                {"tags": fluid, "name": "fluid", "tag_id": 100},
+                {"tags": solid, "name": "solid", "tag_id": 200},
+            ]
+        )
+    else:
+        fluid      = extruded_super[:3]
+        solid      = [extruded_super[3]]
+        outlet     = extruded_ndim[:3]
+        top        = [extruded_ndim[3]]
+        inlet      = [s[1] for s in base[:3]]
+        bottom     = [base[3][1]]
+        symmetry   = [34]
+        wedgeFluid = [21, 22, 24, 25, 28, 29]
+        wedgeSolid = [32, 33]
+
+        model.add_physical_groups(
+            surfaces=[
+                {"tags": inlet,      "name": "fluidInlet",     "tag_id": 10},
+                {"tags": outlet,     "name": "fluidOutlet",    "tag_id": 20},
+                {"tags": bottom,     "name": "solidBottom",    "tag_id": 30},
+                {"tags": top,        "name": "solidTop",       "tag_id": 40},
+                {"tags": symmetry,   "name": "solidSymmetry",  "tag_id": 50},
+                {"tags": wedgeFluid, "name": "wedgeFluid",     "tag_id": 60},
+                {"tags": wedgeSolid, "name": "wedgeSolid",     "tag_id": 70},
+            ],
+            volumes=[
+                {"tags": fluid, "name": "fluid", "tag_id": 100},
+                {"tags": solid, "name": "solid", "tag_id": 200},
+            ]
+        )
+
     model.synchronize()
-    #endregion: physical groups
+    # #endregion: physical groups
 
     model.generate_mesh(dim=2)
     model.generate_mesh(dim=3)
