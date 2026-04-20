@@ -16,7 +16,9 @@ FoamFile
 
 dimensions      [ 0 0 0 1 0 0 0 ];
 
-internalField   uniform 300;
+#include "../../constant/userParameters"
+
+internalField   uniform $solidTemperature;
 
 boundaryField
 {

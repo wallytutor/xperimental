@@ -5,18 +5,21 @@
     \\  /    A nd           | Version:  13
      \\/     M anipulation  |
 \*---------------------------------------------------------------------------*/
-
-fluid
+FoamFile
 {
-    inletTemperature 873.15;
-
-    inletVelocity 10.5;
+    format      ascii;
+    class       dictionary;
+    location    "constant";
+    object      userParameters;
 }
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
+fluidTemperature  873.15;
 
-parallel
-{
-    numberOfSubdomains 4;
-}
+solidTemperature  298.15;
+
+inletVelocity     10.5;
+
+nProcs            4;
 
 // ************************************************************************* //

@@ -18,13 +18,13 @@ FoamFile
 
 #include "../constant/userParameters"
 
-numberOfSubdomains $parallel.numberOfSubdomains;
+numberOfSubdomains $nProcs;
 
 method          hierarchical;
 
 hierarchicalCoeffs
 {
-    n           (1 1 $parallel.numberOfSubdomains);
+    n           (1 1 $nProcs);
     order       xyz;
 }
 

@@ -8,18 +8,17 @@
 FoamFile
 {
     format      ascii;
-    class       volScalarField;
+    class       volVectorField;
     location    "0/fluid";
-    object      T;
+    object      U;
 }
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
+dimensions      [ 0 1 -1 0 0 0 0 ];
 
-dimensions      [ 0 0 0 1 0 0 0 ];
+#include "../../constant/userParameters"
 
-#include "../constant/userParameters"
-
-internalField   uniform $fluid.inletTemperature;
+internalField   uniform (0 0 $inletVelocity);
 
 boundaryField
 {
@@ -28,20 +27,17 @@ boundaryField
     fluidInlet
     {
         type            fixedValue;
-        value           $fluid.inletTemperature;
+        value           uniform (0 0 $inletVelocity);
     }
     fluidOutlet
     {
-        type            inletOutlet;
-        value           $fluid.inletTemperature;
-        inletValue      $fluid.inletTemperature;
+        type            pressureInletOutletVelocity;
+        value           $internalField;
     }
     fluid_to_solid
     {
-        type            coupledTemperature;
-        value           $fluid.inletTemperature;
+        type            noSlip;
     }
 }
-
 
 // ************************************************************************* //
