@@ -37,11 +37,11 @@ function privatePatches {
 
     foamDictionary constant/solid/polyMesh/boundary \
         -entry entry0/wedgeSolid/type \
-        -set wedge
+        -set cyclic
 
     foamDictionary constant/fluid/polyMesh/boundary \
         -entry entry0/wedgeFluid/type \
-        -set wedge
+        -set cyclic
 }
 
 function privateConvertMesh {
