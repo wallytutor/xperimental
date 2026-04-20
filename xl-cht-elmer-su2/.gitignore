@@ -24,10 +24,3 @@ model-su2/*.csv
 model-su2/*.su2
 model-su2/log.*
 model-su2/*.log
-
-# Foam model:
-*.foam
-**/polyMesh/*
-cellToRegion
-log.*
-processor*/

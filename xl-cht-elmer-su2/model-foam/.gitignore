@@ -1,0 +1,16 @@
+# Automatically generated initial conditions:
+0.000000e+00/
+
+# Helper to launch ParaView:
+*.foam
+
+# Any generated mesh
+**/polyMesh/*
+cellToRegion
+*.msh
+
+# Logs:
+log.*
+
+# Parallel processing:
+processor*/
