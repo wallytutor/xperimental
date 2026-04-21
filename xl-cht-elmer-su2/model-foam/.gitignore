@@ -11,9 +11,10 @@ cellToRegion
 
 # Logs:
 log.*
+logs/
 
 # Parallel processing:
 processor*/
 
-# Residual plot temporary files:
-.residual_plot_tmp/*
+# Results:
+VTK/

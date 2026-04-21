@@ -51,20 +51,24 @@ function ensureMesh {
     fi
 }
 
-cleanAll
+function runCase {
+    cleanAll
 
-ensureMesh
+    ensureMesh
 
-expandField "fluid" "p"
-expandField "fluid" "p_rgh"
-expandField "fluid" "U"
-expandField "fluid" "T"
-expandField "solid" "T"
+    expandField "fluid" "p"
+    expandField "fluid" "p_rgh"
+    expandField "fluid" "U"
+    expandField "fluid" "T"
+    expandField "solid" "T"
 
-decomposePar -allRegions  > log.7.decomposePar 2>&1
+    decomposePar -allRegions  > log.7.decomposePar 2>&1
 
-mpiexec -n $NUM_PROCS foamMultiRun -parallel > log.8.foamMultiRun 2>&1 &
+    mpiexec -n $NUM_PROCS foamMultiRun -parallel > log.8.foamMultiRun 2>&1 &
 
-# reconstructPar -allRegions
+    foamLog log.8.foamMultiRun
+
+    reconstructPar -allRegions
+}
 
 #------------------------------------------------------------------------------

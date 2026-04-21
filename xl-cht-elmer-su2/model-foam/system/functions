@@ -1,0 +1,102 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+  =========                 |
+  \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
+   \\    /   O peration     | Website:  https://openfoam.org
+    \\  /    A nd           | Version:  13
+     \\/     M anipulation  |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    format      ascii;
+    class       dictionary;
+    object      functions;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+#includeFunc residuals (
+    name   = residualsFluid,
+    region = fluid,
+    fields = (p_rgh U h)
+)
+
+#includeFunc residuals (
+    name   = residualsSolid,
+    region = solid,
+    fields = (e)
+)
+
+#includeFunc patchFlowRate
+(
+    name   = flowRateInlet,
+    region = fluid,
+    patch  = fluidInlet,
+    field  = phi
+)
+
+#includeFunc patchFlowRate
+(
+    name   = flowRateOutlet,
+    region = fluid,
+    patch  = fluidOutlet,
+    field  = phi
+)
+
+#includeFunc patchAverage
+(
+    name   = temperatureOutlet,
+    region = fluid,
+    patch  = fluidOutlet,
+    field  = T
+)
+
+#includeFunc patchAverage
+(
+    name   = pressureInlet,
+    region = fluid,
+    patch  = fluidInlet,
+    field  = p
+)
+
+#includeFunc volAverage
+(
+    name   = solidTemperature,
+    region = solid,
+    field  = T
+)
+
+#includeFunc wallHeatFlux
+(
+    name   = fluidToSolidHeatFlux,
+    region = fluid,
+    patch  = fluid_to_solid
+)
+
+#includeFunc wallHeatFlux
+(
+    name   = solidToFluidHeatFlux,
+    region = solid,
+    patch  = solid_to_fluid
+)
+
+#includeFunc yPlus
+(
+    name   = yPlusFluid,
+    region = fluid,
+    patch  = fluid_to_solid
+)
+
+// #includeFunc writeVTK
+// (
+//     name   = writeVTKFluid,
+//     region = fluid,
+//     fields = (T)
+// )
+
+// #includeFunc writeVTK
+// (
+//     name   = writeVTKSolid,
+//     region = solid,
+//     fields = (T)
+// )
+
+// ************************************************************************* //

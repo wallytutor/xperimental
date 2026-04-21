@@ -30,3 +30,5 @@ echo ". /opt/openfoam13/etc/bashrc" >> ~/.bashrc
 - [x] Mesh is converted to OpenFOAM format using `gmshToFoam` utility; mesh is renumbered with `renumberMesh` for fixing face orientation (to be verified). Finally, mesh is split into regions with `splitMeshRegions` utility, and the original `constant/polyMesh` directory is removed to avoid confusion.
 
 - [ ] Extremities use `externalWallHeatFluxTemperature` or a coded version.
+
+- Functions from coolingCylinder2D
