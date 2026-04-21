@@ -3,13 +3,13 @@
 # Height of the thermocline model [m]
 h_t: 15.0
 
-# Stored energy in the thermocline model [J]
+# Stored energy in the thermocline model [MWh]
 H_t: 36
 
-# Target nominal operating power (charging) [W]
+# Target nominal operating power (charging) [MW]
 P_c: 6.0
 
-# Target nominal operating power (discharging) [W]
+# Target nominal operating power (discharging) [MW]
 P_d: 2.0
 
 # Hot working temperature [K]
