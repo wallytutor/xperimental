@@ -52,7 +52,7 @@ data = yaml.load(open("../dimensioning.yaml"))
 
 m_h = data["m_h"]
 D_h = data["D_h"]
-h_h = 1.0
+h_t = data["h_t"]
 
 # Six-fold symmetry of the system:
 num_splits = 6
@@ -61,7 +61,7 @@ num_splits = 6
 rotation   = 30
 
 # Number of layers in the extrusion direction:
-n_layers   = int(h_h / (rel_layer * D_h))
+n_layers   = int(h_t / (rel_layer * D_h))
 
 # Apothem of the hexagon, i.e. distance from center to face:
 center_to_wall = (1 + m_h) * D_h / 2
@@ -141,7 +141,7 @@ with GmshOCCModel(render=True, **options) as model:
     model.set_transfinite_curve(l2, 5)
 
     opts = dict(numElements=[n_layers], recombine=True)
-    new_tags = model.extrude(base, 0, 0, h_h, **opts)
+    new_tags = model.extrude(base, 0, 0, h_t, **opts)
     model.synchronize()
     #endregion: create volume
 
