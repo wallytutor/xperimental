@@ -8,40 +8,41 @@
 FoamFile
 {
     format      ascii;
-    class       volVectorField;
+    class       volScalarField;
     location    "0/fluid";
-    object      U;
+    object      k;
 }
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
-dimensions      [ 0 1 -1 0 0 0 0 ];
+dimensions      [0 2 -2 0 0 0 0];
 
-#include "../../constant/userParameters"
-
-internalField   uniform (0 0 $inletVelocity);
+internalField   uniform 0.01;
 
 boundaryField
 {
-    #includeEtc "caseDicts/setConstraintTypes"
-
     fluidInlet
     {
-        type            fixedValue;
-        value           uniform (0 0 $inletVelocity);
+        type            mappedInternalValue;
+        interpolationScheme cell;
+        value           uniform 0.01;
     }
     fluidOutlet
     {
-        type            pressureInletOutletVelocity;
-        value           $internalField;
+        type            inletOutlet;
+        phi             phi;
+        inletValue      uniform 0.01;
+        value           uniform 0.01;
     }
     fluid_to_solid
     {
-        type            noSlip;
+        type            kqRWallFunction;
+        value           uniform 0.01;
     }
     "cyclicFluid(Left|Right)"
     {
         type            cyclic;
     }
 }
+
 
 // ************************************************************************* //

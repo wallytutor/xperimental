@@ -28,7 +28,7 @@ boundaryField
         type            fixedFluxPressure;
         value           $internalField;
     }
-    "cyclic.*"
+    "cyclicFluid(Left|Right)"
     {
         type            cyclic;
     }

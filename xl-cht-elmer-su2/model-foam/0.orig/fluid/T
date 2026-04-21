@@ -41,7 +41,7 @@ boundaryField
         type            coupledTemperature;
         value           uniform $fluidTemperature;
     }
-    "cyclic.*"
+    "cyclicFluid(Left|Right)"
     {
         type            cyclic;
     }
