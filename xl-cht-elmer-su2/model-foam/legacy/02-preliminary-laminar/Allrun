@@ -1,0 +1,74 @@
+#!/usr/bin/env bash
+
+# Run from this directory
+# cd ${0%/*} || exit 1
+
+export NUM_PROCS=20
+
+initDir="0.000000e+00"
+
+meshFile="mesh.msh"
+meshBasic="constant/polyMesh/"
+meshSolid="constant/solid/polyMesh/"
+meshFluid="constant/fluid/polyMesh/"
+
+function cleanAll {
+    rm -rf log.*
+    rm -rf processor*
+    rm -rf "${meshBasic}"
+    rm -rf "${meshSolid}"
+    rm -rf "${meshFluid}"
+    rm -rf "constant/cellToRegion"
+    rm -rf "${initDir}"
+}
+
+function expandField {
+    local region="$1"
+    local field="$2"
+
+    foamDictionary "0.orig/${region}/${field}" \
+        -expand > "${initDir}/${region}/${field}"
+}
+
+function ensureMesh {
+    if [ ! -f "${meshFile}" ]; then
+        echo "First generating the mesh with gmsh"
+        exit 1
+    fi
+
+    if [ ! -d "${meshSolid}" ] || [ ! -d "${meshFluid}" ]; then
+        if [ ! -d "${meshBasic}" ]; then
+            gmshToFoam "${meshFile}" > log.1.gmshToFoam 2>&1
+            renumberMesh > log.2.renumberMesh 2>&1
+        fi
+
+        createPatch -overwrite > log.3.createPatch 2>&1
+        splitMeshRegions -cellZones > log.4.splitMeshRegions 2>&1
+        rm -rf "${meshBasic}"
+
+        checkMesh -region fluid > log.5.checkMeshFluid 2>&1
+        checkMesh -region solid > log.6.checkMeshSolid 2>&1
+    fi
+}
+
+function runCase {
+    cleanAll
+
+    ensureMesh
+
+    expandField "fluid" "p"
+    expandField "fluid" "p_rgh"
+    expandField "fluid" "U"
+    expandField "fluid" "T"
+    expandField "solid" "T"
+
+    decomposePar -allRegions  > log.7.decomposePar 2>&1
+
+    mpiexec -n $NUM_PROCS foamMultiRun -parallel > log.8.foamMultiRun 2>&1 &
+
+    foamLog log.8.foamMultiRun
+
+    reconstructPar -allRegions
+}
+
+#------------------------------------------------------------------------------

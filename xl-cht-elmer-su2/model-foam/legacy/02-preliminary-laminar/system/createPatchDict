@@ -1,0 +1,82 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+  =========                 |
+  \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
+   \\    /   O peration     | Website:  https://openfoam.org
+    \\  /    A nd           | Version:  13
+     \\/     M anipulation  |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    format      ascii;
+    class       dictionary;
+    location    "system";
+    object      createPatchDict;
+}
+
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+// Following the discussion here:
+// https://www.cfd-online.com/Forums/openfoam-meshing/
+// 143087-pointwise-foam-cyclic-bc-points-order.html
+
+patches
+(
+    {
+        name cyclicFluidLeft;
+        patchInfo
+        {
+            type cyclic;
+            neighbourPatch cyclicFluidRight;
+            transform rotational;
+            rotationAxis (0 0 1);
+            rotationCentre (0 0 0);
+        }
+        constructFrom patches;
+        patches (fluidLeft);
+    }
+
+    {
+        name cyclicFluidRight;
+        patchInfo
+        {
+            type cyclic;
+            neighbourPatch cyclicFluidLeft;
+            transform rotational;
+            rotationAxis (0 0 1);
+            rotationCentre (0 0 0);
+        }
+        constructFrom patches;
+        patches (fluidRight);
+    }
+
+    {
+        name cyclicSolidLeft;
+        patchInfo
+        {
+            type cyclic;
+            neighbourPatch cyclicSolidRight;
+            transform rotational;
+            rotationAxis (0 0 1);
+            rotationCentre (0 0 0);
+        }
+        constructFrom patches;
+        patches (solidLeft);
+    }
+
+    {
+        name cyclicSolidRight;
+        patchInfo
+        {
+            type cyclic;
+            neighbourPatch cyclicSolidLeft;
+            transform rotational;
+            rotationAxis (0 0 1);
+            rotationCentre (0 0 0);
+        }
+        constructFrom patches;
+        patches (solidRight);
+    }
+);
+
+
+// ************************************************************************* //
