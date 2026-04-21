@@ -28,3 +28,5 @@ echo ". /opt/openfoam13/etc/bashrc" >> ~/.bashrc
 - [x] Reference case setup `multiRegion/CHT/heatedDuct` used for constructing the case; case is copied and stripped from unnecessary files related to heater region and meshing. Additional elements as turbulence model and fluid properties are added from `multiRegion/CHT/circuitBoardCooling` case.
 
 - [x] Mesh is converted to OpenFOAM format using `gmshToFoam` utility; mesh is renumbered with `renumberMesh` for fixing face orientation (to be verified). Finally, mesh is split into regions with `splitMeshRegions` utility, and the original `constant/polyMesh` directory is removed to avoid confusion.
+
+- [ ] Extremities use `externalWallHeatFluxTemperature` or a coded version.

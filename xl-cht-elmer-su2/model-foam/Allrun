@@ -103,8 +103,8 @@ privateExpandField "fluid" "U"
 privateExpandField "fluid" "T"
 privateExpandField "solid" "T"
 
-# decomposePar -allRegions  > log.7.decomposePar 2>&1
-# runParallel foamMultiRun
-# runApplication reconstructPar -allRegions
+decomposePar -allRegions  > log.7.decomposePar 2>&1
+mpiexec -n 4 foamMultiRun -parallel > log.8.foamMultiRun 2>&1
+# reconstructPar -allRegions
 
 #------------------------------------------------------------------------------
