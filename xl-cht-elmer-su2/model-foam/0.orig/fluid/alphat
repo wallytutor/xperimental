@@ -9,36 +9,31 @@ FoamFile
 {
     format      ascii;
     class       volScalarField;
-    location    "0/fluid";
-    object      omega;
+    object      alphat.gas;
 }
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
-dimensions      [0 0 -1 0 0 0 0];
+dimensions      [1 -1 -1 0 0 0 0];
 
-internalField   uniform 0.01;
+internalField   uniform 1.0e-08;
 
 boundaryField
 {
     fluidInlet
     {
-        type            fixedValue;
-        value           uniform 0.01;
+        type            calculated;
+        value           $internalField;
     }
     fluidOutlet
     {
-        type            inletOutlet;
-        phi             phi;
-        inletValue      uniform 0.0015;
-        value           uniform 0.01;
+        type            calculated;
+        value           $internalField;
     }
     fluid_to_solid
     {
-        type            omegaWallFunction;
-        Cmu             0.09;
-        kappa           0.41;
-        E               9.8;
-        value           uniform 0.001;
+        // TODO check this!
+        type            calculated;
+        value           $internalField;
     }
     "cyclicFluid(Left|Right)"
     {

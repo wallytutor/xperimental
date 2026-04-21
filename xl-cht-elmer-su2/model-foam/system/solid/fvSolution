@@ -18,8 +18,12 @@ solvers
 {
     e
     {
+        // solver           PCG;
+        // preconditioner   DIC;
+
         solver           GAMG;
         smoother         symGaussSeidel;
+
         tolerance        1e-6;
         relTol           0.1;
         maxIter          10;
@@ -35,6 +39,14 @@ solvers
 PIMPLE
 {
     nNonOrthogonalCorrectors 0;
+}
+
+relaxationFactors
+{
+    equations
+    {
+        ".*" 1;
+    }
 }
 
 // ************************************************************************* //

@@ -9,49 +9,15 @@ FoamFile
 {
     format      ascii;
     class       dictionary;
-    location    "system";
-    object      controlDict;
+    object      fvConstraints;
 }
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
-#include "../constant/userParameters"
-
-regionSolvers
+limitp
 {
-    fluid           fluid;
-    solid           solid;
+    type       limitPressure;
+
+    min        1e4;
 }
-
-startFrom         startTime;
-
-startTime         0;
-
-stopAt            endTime;
-
-endTime           20;
-
-deltaT            1.0e-05;
-
-writeControl      adjustableRunTime;
-
-writeInterval     1;
-
-purgeWrite        0;
-
-writeFormat       binary;
-
-writePrecision    6;
-
-writeCompression  off;
-
-timeFormat        scientific;
-
-timePrecision     6;
-
-runTimeModifiable true;
-
-maxCo             1.0;
-
-adjustTimeStep    yes;
 
 // ************************************************************************* //

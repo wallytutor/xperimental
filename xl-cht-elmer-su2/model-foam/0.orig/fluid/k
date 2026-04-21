@@ -22,8 +22,7 @@ boundaryField
 {
     fluidInlet
     {
-        type            mappedInternalValue;
-        interpolationScheme cell;
+        type            fixedValue;
         value           uniform 0.01;
     }
     fluidOutlet

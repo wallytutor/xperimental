@@ -51,16 +51,26 @@ function ensureMesh {
     fi
 }
 
+function initialConditions {
+    [ ! -d "${initDir}" ] && mkdir -p "${initDir}/"{fluid,solid}
+
+    expandField "fluid" "p"
+    expandField "fluid" "p_rgh"
+    expandField "fluid" "k"
+    expandField "fluid" "omega"
+    expandField "fluid" "nut"
+    expandField "fluid" "alphat"
+    expandField "fluid" "U"
+    expandField "fluid" "T"
+    expandField "solid" "T"
+}
+
 function runCase {
     cleanAll
 
     ensureMesh
 
-    expandField "fluid" "p"
-    expandField "fluid" "p_rgh"
-    expandField "fluid" "U"
-    expandField "fluid" "T"
-    expandField "solid" "T"
+    initialConditions
 
     decomposePar -allRegions  > log.7.decomposePar 2>&1
 
