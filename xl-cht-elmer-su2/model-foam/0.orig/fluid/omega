@@ -16,29 +16,27 @@ FoamFile
 
 dimensions      [0 0 -1 0 0 0 0];
 
-internalField   uniform 0.01;
+internalField   uniform 100;
 
 boundaryField
 {
     fluidInlet
     {
-        type            fixedValue;
-        value           uniform 0.01;
+        type            turbulentMixingLengthFrequencyInlet;
+        mixingLength    0.001;
+        value           $internalField;
     }
     fluidOutlet
     {
         type            inletOutlet;
         phi             phi;
-        inletValue      uniform 0.0015;
-        value           uniform 0.01;
+        inletValue      $internalField;
+        value           $internalField;
     }
     fluid_to_solid
     {
         type            omegaWallFunction;
-        Cmu             0.09;
-        kappa           0.41;
-        E               9.8;
-        value           uniform 0.001;
+        value           $internalField;
     }
     "cyclicFluid(Left|Right)"
     {

@@ -14,6 +14,8 @@ meshFluid="constant/fluid/polyMesh/"
 
 function cleanAll {
     rm -rf log.*
+    rm -rf logs
+    rm -rf postProcessing
     rm -rf processor*
     rm -rf "${meshBasic}"
     rm -rf "${meshSolid}"

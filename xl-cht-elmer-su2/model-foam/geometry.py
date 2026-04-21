@@ -35,15 +35,15 @@ num_points_angular = 6
 
 # Fluid boundary layer thickness and cell sizes:
 fluid_bl_tot       = 0.003
-fluid_bl_ext       = 0.0002
-fluid_bl_int       = 0.0010
+fluid_bl_ext       = 0.0001
+fluid_bl_int       = 0.0006
 
 # Solid boundary layer cell sizes:
 solid_bl_ext       = 0.0050
 solid_bl_int       = 0.0001
 
 # Relative layer thickness (w.r.t D_h) for the extrusion direction:
-rel_layer          = 0.2
+rel_layer          = 0.15
 #endregion: refinement controls
 
 #region: parameters
