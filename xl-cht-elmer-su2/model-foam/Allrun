@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 
 # Run from this directory
-cd ${0%/*} || exit 1
+# cd ${0%/*} || exit 1
 
-export NUM_PROCS=4
+export NUM_PROCS=20
 
 initDir="0.000000e+00"
 
