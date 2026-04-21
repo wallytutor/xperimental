@@ -1,5 +1,5 @@
-# Automatically generated initial conditions:
-0.000000e+00/
+# Automatically generated initial conditions and results:
+*[0-9].[0-9]*e[+-][0-9]*/
 
 # Helper to launch ParaView:
 *.foam
