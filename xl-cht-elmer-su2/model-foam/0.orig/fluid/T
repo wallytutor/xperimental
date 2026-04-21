@@ -19,7 +19,7 @@ dimensions      [ 0 0 0 1 0 0 0 ];
 
 #include "../../constant/userParameters"
 
-internalField    uniform $fluidTemperature;
+internalField    uniform $solidTemperature;
 
 boundaryField
 {
