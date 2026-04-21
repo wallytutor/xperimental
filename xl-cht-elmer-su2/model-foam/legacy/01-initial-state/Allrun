@@ -1,0 +1,110 @@
+#!/usr/bin/env bash
+
+# Run from this directory
+cd ${0%/*} || exit 1
+
+initDir="0.000000e+00"
+
+meshFile="mesh.msh"
+meshBasic="constant/polyMesh/"
+meshSolid="constant/solid/polyMesh/"
+meshFluid="constant/fluid/polyMesh/"
+
+function cleanAll {
+    rm -rf log.*
+    rm -rf processor*
+    rm -rf "${meshBasic}"
+    rm -rf "${meshSolid}"
+    rm -rf "${meshFluid}"
+    rm -rf "constant/cellToRegion"
+    rm -rf "${initDir}"
+}
+
+function privateExpandField {
+    local region="$1"
+    local field="$2"
+
+    foamDictionary "0.orig/${region}/${field}" \
+        -expand > "${initDir}/${region}/${field}"
+}
+
+function privateSetCyclicPatch {
+    local region="$1"
+    local patch="$2"
+    local neighbourPatch="$3"
+
+    foamDictionary "constant/${region}/polyMesh/boundary" \
+        -entry "entry0/${patch}/type" \
+        -set cyclic
+
+    foamDictionary "constant/${region}/polyMesh/boundary" \
+        -entry "entry0/${patch}/neighbourPatch" \
+        -set "${neighbourPatch}"
+}
+
+function privatePatches {
+    foamDictionary "constant/solid/polyMesh/boundary" \
+        -entry "entry0/solidBottom/type" \
+        -set wall
+
+    foamDictionary "constant/solid/polyMesh/boundary" \
+        -entry "entry0/solidTop/type" \
+        -set wall
+
+    foamDictionary "constant/solid/polyMesh/boundary" \
+        -entry "entry0/solidSymmetry/type" \
+        -set wall
+
+    privateSetCyclicPatch "solid" "solidLeft"  "solidRight"
+    privateSetCyclicPatch "solid" "solidRight" "solidLeft"
+
+    privateSetCyclicPatch "fluid" "fluidLeft"  "fluidRight"
+    privateSetCyclicPatch "fluid" "fluidRight" "fluidLeft"
+}
+
+function privateConvertMesh {
+    if [ ! -d "${meshBasic}" ]; then
+        gmshToFoam "${meshFile}" > log.1.gmshToFoam 2>&1
+        renumberMesh > log.2.renumberMesh 2>&1
+    fi
+
+    createPatch -overwrite > log.3.createPatch 2>&1
+    splitMeshRegions -cellZones > log.4.splitMeshRegions 2>&1
+    rm -rf "${meshBasic}"
+
+    # When using createPatch this is not required if you give new names
+    # but as we are keeping original names you need this fix.
+    # Update: better rename, otherwise the error is still there...
+    # privatePatches
+
+    checkMesh -region fluid > log.5.checkMeshFluid 2>&1
+    checkMesh -region solid > log.6.checkMeshSolid 2>&1
+}
+
+function ensureMesh {
+    if [ ! -f "${meshFile}" ]; then
+        echo "First generating the mesh with gmsh"
+        exit 1
+    fi
+
+    if [ ! -d "${meshSolid}" ] || [ ! -d "${meshFluid}" ]; then
+        privateConvertMesh
+    fi
+}
+
+cleanAll
+# ensureMesh
+
+# mkdir -p "${initDir}/fluid"
+# mkdir -p "${initDir}/solid"
+# privateExpandField "fluid" "p"
+# privateExpandField "fluid" "p_rgh"
+# privateExpandField "fluid" "U"
+# privateExpandField "fluid" "T"
+# privateExpandField "solid" "T"
+
+# decomposePar -allRegions  > log.7.decomposePar 2>&1
+# mpiexec -n 4 foamMultiRun -parallel > log.8.foamMultiRun 2>&1
+# reconstructPar -allRegions
+
+#------------------------------------------------------------------------------
