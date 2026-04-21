@@ -24,10 +24,6 @@ boundaryField
 {
     #includeEtc "caseDicts/setConstraintTypes"
 
-    // "solid(Top|Bottom|Symmetry)"
-    // {
-    //     type            zeroGradient;
-    // }
     "solid(Top|Bottom)"
     {
         type            externalTemperature;
@@ -35,8 +31,6 @@ boundaryField
         h               uniform 10.0;
         thicknessLayers (0.25);
         kappaLayers     (2.0);
-        emissivity       0.9;
-
         value           $internalField;
     }
     solidSymmetry
