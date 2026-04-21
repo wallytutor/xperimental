@@ -51,6 +51,7 @@
             "decomposeParDict",
             "fvSolution",
             "fvSchemes",
+            "functions",
 
             "userParameters"
         ],
