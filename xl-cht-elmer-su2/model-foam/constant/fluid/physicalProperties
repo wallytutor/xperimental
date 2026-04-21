@@ -16,10 +16,10 @@ FoamFile
 
 thermoType
 {
-    type            heRhoThermo;
+    type            hePsiThermo;
     mixture         pureMixture;
-    transport       const;
-    thermo          hConst;
+    transport       sutherland;
+    thermo          janaf;
     equationOfState perfectGas;
     specie          specie;
     energy          sensibleEnthalpy;
@@ -29,19 +29,70 @@ mixture
 {
     specie
     {
-        molWeight       28.96;
+        molWeight       28.85097;
     }
     thermodynamics
     {
-        Cp              1004.4;
-        hf              0;
+        Tlow            200;
+        Thigh           3000;
+        Tcommon         1000;
+        highCpCoeffs
+        (
+            3.05809
+            0.00133634
+            -4.73394e-07
+            7.38653e-11
+            -3.34205e-15
+            -972.89
+            6.09034
+        );
+        lowCpCoeffs
+        (
+            3.393
+            0.000544363
+            -1.24622e-06
+            2.65579e-09
+            -1.35538e-12
+            -1029.28
+            4.43259
+        );
     }
     transport
     {
-        mu              3.0e-05;
-        Pr              0.705;
+        As  1.6853581850699974e-06;
+        Ts  227.72854078370528;
     }
 }
 
+// Constant properties for debugging purposes
+//
+// thermoType
+// {
+//     type            heRhoThermo;
+//     mixture         pureMixture;
+//     transport       const;
+//     thermo          hConst;
+//     equationOfState perfectGas;
+//     specie          specie;
+//     energy          sensibleEnthalpy;
+// }
+//
+// mixture
+// {
+//     specie
+//     {
+//         molWeight       28.96;
+//     }
+//     thermodynamics
+//     {
+//         Cp              1004.4;
+//         hf              0;
+//     }
+//     transport
+//     {
+//         mu              3.0e-05;
+//         Pr              0.705;
+//     }
+// }
 
 // ************************************************************************* //
