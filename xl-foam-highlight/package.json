@@ -18,7 +18,25 @@
     "syntax",
     "highlight"
   ],
+  "main": "./extension.js",
+  "activationEvents": [
+    "onStartupFinished"
+  ],
   "contributes": {
+    "configuration": {
+      "title": "OpenFOAM Dictionary Highlight",
+      "properties": {
+        "openfoamDictHighlight.additionalFilenames": {
+          "type": "array",
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "description": "Additional exact file names to detect as OpenFOAM dictionaries.",
+          "uniqueItems": true
+        }
+      }
+    },
     "languages": [
       {
         "id": "openfoam-dict",
@@ -47,6 +65,7 @@
             "alphat",
             "p_rgh",
             "g",
+            "pRef",
 
             "createPatchDict",
             "momentumTransport",

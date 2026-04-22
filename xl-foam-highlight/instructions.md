@@ -26,3 +26,5 @@ Also, names starting by a dollar sign should be highlighted as variables, e.g., 
 
 
 Can you propose something to highlight the remaining right-values?
+
+Is it possible to add an option so that users can add new file names to the list of files that should be highlighted with this syntax highlighter? I mean, in settings.json. If so, add this to the extension, otherwise, propose an alternative solution to allow users to add new file names for syntax highlighting.

@@ -10,6 +10,40 @@ The extension auto-detects these filenames with no manual file association:
 - `decomposeParDict`
 - `fvSolution`
 
+It also includes a broader built-in OpenFOAM filename list (for example `fvSchemes`, `boundary`, `U`, and `p_rgh`) for out-of-the-box highlighting.
+
+## Add custom filenames in settings.json
+
+You can add your own dictionary file names via extension settings:
+
+- Setting key: `openfoamDictHighlight.additionalFilenames`
+- Type: array of strings
+- Match mode: exact file name match
+
+Example:
+
+```json
+{
+  "openfoamDictHighlight.additionalFilenames": [
+    "mySolverDict",
+    "regionProperties",
+    "combustionProperties"
+  ]
+}
+```
+
+After changing this setting, the extension reapplies language detection to currently open files.
+
+Alternative fallback (if you prefer native VS Code association behavior) is to use `files.associations`, for example:
+
+```json
+{
+  "files.associations": {
+    "**/mySolverDict": "openfoam-dict"
+  }
+}
+```
+
 ## Highlighting rules
 
 - C-style comments:
