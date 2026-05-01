@@ -1,0 +1,185 @@
+# Diffusion tutorial
+
+## Getting started
+
+Goals of the tutorial:
+
+- Learn about C#/Python interoperability with `pythonnet`.
+
+- Implement a simple 1D diffusion solver in C# and use it from Python.
+
+Start a new Python virtual environment and install the required dependencies:
+
+```bash
+uv venv --python python3.12 .venv
+
+.venv/Scripts/activate
+
+uv pip install pythonnet
+uv pip install pandas[excel] matplotlib
+uv pip install ipykernel
+```
+
+## Importing tools
+
+```{python}
+import matplotlib.pyplot as plt
+import pandas as pd
+import sys
+from pathlib import Path
+from subprocess import run
+```
+
+```{python}
+run(["dotnet", "build", ".", "-c", "Release"], check=True)
+```
+
+```{python}
+import pythonnet
+here = Path(__file__).resolve().parent
+runtime_config = str(here / "runtime.json")
+pythonnet.load("coreclr", runtime_config=runtime_config)
+```
+
+```{python}
+# Make .NET available.
+import clr
+clr.AddReference("System")
+clr.AddReference("System.Collections")
+
+import System
+from System.Collections.Generic import List
+```
+
+```{python}
+# Add dynamically-linked library to path.
+dll_path = here / "bin/Release/net10.0"
+sys.path.insert(0, str(dll_path))
+clr.AddReference("Diffusion")
+
+from Diffusion import ProblemData, SolverLinear
+```
+
+## Helper functions
+
+```{python}
+def plot_results(filename, time):
+    """ Plot results from file. """
+    results = pd.read_csv(filename, names=["x", "y"])
+
+    plt.close("all")
+    plt.style.use("bmh")
+    fig, ax = plt.subplots(figsize=(6, 4))
+    ax.plot(1000 * results["x"], results["y"], label=f"{time} s")
+    ax.set_xlabel("Position [mm]")
+    ax.set_ylabel("Mass fraction")
+    return fig, ax
+
+
+def solve_and_plot(data, arr, time, steps, filename):
+    """ Solve and plot results. """
+    sol = SolverLinear(data, arr)
+    sol.Advance(time, steps, True)
+    sol.ToCSV(filename)
+
+    return plot_results(filename, time)
+```
+
+## Example with hardcoded inputs
+
+```{python}
+# Create and set problem inputs.
+data = ProblemData()
+data.nodes = 1000     # Number of nodes [].
+data.length = 0.001   # Thickness of place [m].
+data.Dc = 1.0e-11     # Diffusion coefficient [m^2/s].
+data.hw = 1.0e-06     # Mass transfer coeff. west [m/s].
+data.he = 0.0e-07     # Mass transfer coeff. east [m/s].
+data.cw = 0.02        # Boundary condition on west [].
+data.ce = 0.50        # Boundary condition on west [].
+
+# Define integration range/steps.
+time = 3600.0
+steps = 1800
+
+# Constant initial condition.
+arr = 0.5
+
+_, ax = solve_and_plot(data, arr, time, steps, "data/mwe1.csv")
+ax.set_xlim(0.00, 1.00)
+ax.set_ylim(0.00, 0.60)
+```
+
+## Example with inputs from file
+
+```{python}
+# Read inputs file.
+inputs = pd.read_excel("data/inputs.xls", sheet_name="inputs")
+inputs = inputs.iloc[:, :2].to_dict(orient="records")
+inputs = {row["Parameter"]: row["Value"] for row in inputs}
+
+# Create and set problem inputs.
+data = ProblemData()
+data.nodes  = int(inputs["nodes"])
+data.length = inputs["length"]
+data.Dc     = inputs["Dc"]
+data.hw     = inputs["hw"]
+data.he     = inputs["he"]
+data.cw     = inputs["cw"]
+data.ce     = inputs["ce"]
+
+# Define integration range/steps.
+time  = inputs["duration"]
+steps = int(inputs["steps"])
+
+# Constant initial condition.
+arr = inputs["initial"]
+
+_, ax = solve_and_plot(data, arr, time, steps, "data/mwe2.csv")
+ax.set_xlim(0.00, 1.00)
+ax.set_ylim(0.00, 0.25)
+```
+
+## Imposing a non-constant initial condition
+
+For compatibility with `SolverLinear`, an instance of `List` from `System.Collections.Generic` must contain the array of initial states (if not a constant, for which a constructor is provided). A loop is used for fillint because of problems in the construction of such container as per [this issue](https://github.com/pythonnet/pythonnet/issues/97).
+
+```{python}
+def get_compat_list(nodes):
+    """ Initialize all-zeros solution array."""
+    arr = List[System.Double](nodes)
+    for _ in range(nodes):
+        arr.Add(0.0)
+    return arr
+
+
+def make_profile(data):
+    """ Create step profile initial condition. """
+    arr = get_compat_list(data.nodes)
+
+    for i in range(data.nodes):
+        if i < data.nodes // 2:
+            arr[i] = 1.0
+        else:
+            arr[i] = 0.0
+
+    return arr
+
+
+data = ProblemData()
+data.nodes = 1000
+data.length = 0.001
+data.Dc = 1.0e-11
+data.hw = 0.000010
+data.he = 0.000001
+data.cw = 1.0
+data.ce = 0.0
+
+time = 3600.0
+steps = 1800
+
+arr = make_profile(data)
+_, ax = solve_and_plot(data, arr, time, steps, "data/mwe3.csv")
+ax.set_xlim(0.00, 1.00)
+ax.set_ylim(0.00, 1.10)
+```
