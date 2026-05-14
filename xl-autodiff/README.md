@@ -13,3 +13,7 @@ Implements an algebraic type `Expr` for constructing the graph of operations, fo
 ## Level 3
 
 This level actually is a consolidation of the previous exercises. Here we use SRTP (Statically Resolved Type Parameters) to implement a more general and efficient version of the forward mode, which can be used for both `Dual` and `Expr` types. This allows us to have a single implementation of the gradient function that works for both representations.
+
+## Level 4
+
+Upon closer examination, I decided that I don't really need an "Expr" type since the algebraic type approach is already well handled by the `Dual` type. Instead here I focus on implementing a more robust and efficient version of the forward mode, dropping the `Expr` type and instead extending the `Dual` type to support more operations and provide a more user-friendly interface.
