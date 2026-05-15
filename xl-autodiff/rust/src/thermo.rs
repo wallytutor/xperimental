@@ -33,6 +33,13 @@ pub fn gibbs<T: Numeric>(t_ref: T, delta_hf: T, s0: T, coefs: &[T], t: T) -> T {
 // Specialized data format
 // ------------------------------------------------------------------------------------------------
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AggregationType {
+    Solid,
+    Liquid,
+    Gas,
+}
+
 #[derive(Debug, Clone)]
 pub struct Substance {
     pub molar_mass: f64,
@@ -40,9 +47,10 @@ pub struct Substance {
     pub delta_gf: f64,
     pub delta_hf: f64,
     pub s0: f64,
-    pub cp: f64,
     pub raw_coefs: Vec<f64>,
     pub elements: HashMap<String, f64>,
+    pub reference: String,
+    pub aggregation_type: AggregationType,
 }
 
 impl Substance {
