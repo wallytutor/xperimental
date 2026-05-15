@@ -86,38 +86,6 @@ fn find_particular_solution(a: &[Vec<f64>], b: &[f64], n_s: usize, n_e: usize) -
     phi
 }
 
-fn find_nullspace(a: &[Vec<f64>], n_s: usize, n_e: usize) -> Vec<f64> {
-    let mut v = vec![1.0; n_s];
-    let lr = 0.01;
-    for _ in 0..20000 {
-        let mut grad = vec![0.0; n_s];
-        for i in 0..n_e {
-            let mut err = 0.0;
-            for k in 0..n_s {
-                err += a[i][k] * v[k];
-            }
-            for k in 0..n_s {
-                grad[k] += err * a[i][k];
-            }
-        }
-        for k in 0..n_s {
-            v[k] -= lr * grad[k];
-        }
-
-        let mut norm = 0.0;
-        for k in 0..n_s {
-            norm += v[k] * v[k];
-        }
-        norm = norm.sqrt();
-        if norm > 1e-12 {
-            for k in 0..n_s {
-                v[k] /= norm;
-            }
-        }
-    }
-    v
-}
-
 pub fn evaluate_local_equilibrium(
     species: &[&thermo::Substance],
     elements: &[&str],
@@ -149,62 +117,93 @@ pub fn evaluate_local_equilibrium(
         }
     }
 
-    let phi_p = find_particular_solution(&a, b, n_s, n_e);
-    let v = find_nullspace(&a, n_s, n_e);
+    let mut best_phi = vec![0.0; n_s];
+    let mut min_g = f64::INFINITY;
+    let mut found_solution = false;
 
-    // Check if v is actually in the nullspace
-    let mut v_err = 0.0;
-    for i in 0..n_e {
-        let mut err = 0.0;
+    // We have a Linear Programming problem: Minimize g_k^T phi s.t. A phi = b, phi >= 0.
+    // Basic feasible solutions have at most rank(A) non-zero variables.
+    // For small n_s, we can just evaluate all possible combinations of active species (supports).
+    let total_subsets = 1 << n_s;
+    for mask in 1..total_subsets {
+        let mut phi = vec![0.0; n_s];
+        // initialize active ones
         for k in 0..n_s {
-            err += a[i][k] * v[k];
-        }
-        v_err += err * err;
-    }
-
-    if v_err > 1e-4 {
-        // 0 degrees of freedom, just return the particular solution
-        return phi_p.into_iter().map(|x| x.max(0.0)).collect();
-    }
-
-    // 1 degree of freedom (Linear Programming line bounds)
-    let mut alpha_min = -1e6;
-    let mut alpha_max = 1e6;
-
-    for k in 0..n_s {
-        if v[k] > 1e-6 {
-            let limit = -phi_p[k] / v[k];
-            if limit > alpha_min {
-                alpha_min = limit;
-            }
-        } else if v[k] < -1e-6 {
-            let limit = -phi_p[k] / v[k];
-            if limit < alpha_max {
-                alpha_max = limit;
+            if (mask & (1 << k)) != 0 {
+                phi[k] = 1.0;
             }
         }
+
+        let lr = 0.01;
+        for _ in 0..10000 {
+            let mut grad = vec![0.0; n_s];
+            for i in 0..n_e {
+                let mut err = -b[i];
+                for k in 0..n_s {
+                    err += a[i][k] * phi[k];
+                }
+                for k in 0..n_s {
+                    grad[k] += err * a[i][k];
+                }
+            }
+            for k in 0..n_s {
+                if (mask & (1 << k)) != 0 {
+                    phi[k] -= lr * grad[k];
+                } else {
+                    phi[k] = 0.0;
+                }
+            }
+        }
+
+        // check mass balance error
+        let mut max_err = 0.0;
+        for i in 0..n_e {
+            let mut err = -b[i];
+            for k in 0..n_s {
+                err += a[i][k] * phi[k];
+            }
+            if err.abs() > max_err {
+                max_err = err.abs();
+            }
+        }
+
+        if max_err > 1e-4 {
+            continue;
+        }
+
+        // check non-negativity
+        let mut valid_non_negative = true;
+        for k in 0..n_s {
+            if phi[k] < -1e-4 {
+                valid_non_negative = false;
+                break;
+            }
+            phi[k] = phi[k].max(0.0);
+        }
+
+        if !valid_non_negative {
+            continue;
+        }
+
+        // Calculate Gibbs for this support
+        let mut g = 0.0;
+        for k in 0..n_s {
+            g += phi[k] * g_k[k];
+        }
+
+        if g < min_g {
+            min_g = g;
+            best_phi = phi.clone();
+            found_solution = true;
+        }
     }
 
-    if alpha_min > alpha_max {
-        return phi_p.into_iter().map(|x| x.max(0.0)).collect();
-    }
-
-    let mut phi_min = vec![0.0; n_s];
-    let mut phi_max = vec![0.0; n_s];
-    let mut g_min = 0.0;
-    let mut g_max = 0.0;
-
-    for k in 0..n_s {
-        phi_min[k] = (phi_p[k] + alpha_min * v[k]).max(0.0);
-        phi_max[k] = (phi_p[k] + alpha_max * v[k]).max(0.0);
-        g_min += phi_min[k] * g_k[k];
-        g_max += phi_max[k] * g_k[k];
-    }
-
-    if g_min < g_max {
-        phi_min
+    if found_solution {
+        best_phi
     } else {
-        phi_max
+        // Fallback
+        let phi_p = find_particular_solution(&a, b, n_s, n_e);
+        phi_p.into_iter().map(|x| x.max(0.0)).collect()
     }
 }
 
