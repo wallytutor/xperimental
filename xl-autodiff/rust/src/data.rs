@@ -31,6 +31,23 @@ pub fn get_lime() -> Substance {
     }
 }
 
+pub fn get_diaspore() -> Substance {
+    Substance {
+        molar_mass: 59.988,
+        molar_volume: 17.760,
+        delta_gf: -922740.0,
+        delta_hf: -1001300.0,
+        s0: 35.300,
+        cp: 53.33,
+        raw_coefs: vec![53.33, 0.0, 0.0],
+        elements: HashMap::from([
+            ("Al".to_string(), 1.0),
+            ("H".to_string(), 1.0),
+            ("O".to_string(), 2.0),
+        ]),
+    }
+}
+
 pub fn get_co2() -> Substance {
     Substance {
         molar_mass: 44.010,
@@ -41,5 +58,18 @@ pub fn get_co2() -> Substance {
         cp: 37.14,
         raw_coefs: vec![33.98, 0.02388, -352000.0],
         elements: HashMap::from([("C".to_string(), 1.0), ("O".to_string(), 2.0)]),
+    }
+}
+
+pub fn get_h2o() -> Substance {
+    Substance {
+        molar_mass: 18.015,
+        molar_volume: 18.070,
+        delta_gf: -228583.0,
+        delta_hf: -241826.0,
+        s0: 188.840,
+        cp: 33.61,
+        raw_coefs: vec![27.60, 0.01369, -223740.0],
+        elements: HashMap::from([("H".to_string(), 2.0), ("O".to_string(), 1.0)]),
     }
 }
