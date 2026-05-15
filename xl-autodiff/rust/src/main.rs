@@ -303,14 +303,19 @@ fn sample_composition_tabulation() {
         "", "", "", "", "", "", ""
     );
 
-    let mut t = 300.0;
-    while t <= 1200.0 {
-        let phi = evaluate_local_equilibrium(&species, &elements, &b, t, 1.0);
+    let t_min = 300.0;
+    let t_max = 1200.0;
+    let t_inc = 100.0;
+    let p = 1.0;
+
+    let mut t = t_min;
+    while t <= t_max {
+        let phi = evaluate_local_equilibrium(&species, &elements, &b, t, p);
         println!(
             "{:<10.2} | {:<12.6} | {:<12.6} | {:<12.6} | {:<14.6} | {:<12.6} | {:<12.6}",
             t, phi[0], phi[1], phi[2], phi[3], phi[4], phi[5]
         );
-        t += 100.0;
+        t += t_inc;
     }
     println!();
 }

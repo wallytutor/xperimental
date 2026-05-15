@@ -39,7 +39,8 @@ pub fn get_diaspore() -> Substance {
         delta_hf: -1001300.0,
         s0: 35.300,
         cp: 53.33,
-        raw_coefs: vec![53.33, 0.0, 0.0],
+        // raw_coefs: vec![53.33, 0.0, 0.0],
+        raw_coefs: vec![49.809839326625806, 0.05858016915762718, -1243143.0926866678],
         elements: HashMap::from([
             ("Al".to_string(), 1.0),
             ("H".to_string(), 1.0),
