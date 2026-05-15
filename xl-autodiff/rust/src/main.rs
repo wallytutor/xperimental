@@ -1,0 +1,255 @@
+use std::ops::{Add, Sub, Mul, Div, Neg};
+
+// ------------------------------------------------------------------------------------------------
+// AutoDiff - Forward Mode (Robust & Efficient)
+// ------------------------------------------------------------------------------------------------
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Dual<T> {
+    pub value: T,
+    pub deriv: T,
+}
+
+impl<T> Dual<T> {
+    pub fn new(value: T, deriv: T) -> Self {
+        Self { value, deriv }
+    }
+}
+
+impl Dual<f64> {
+    pub fn constant(value: f64) -> Self {
+        Self { value, deriv: 0.0 }
+    }
+
+    pub fn variable(value: f64) -> Self {
+        Self { value, deriv: 1.0 }
+    }
+
+    // Power operations
+    pub fn pow(self, b: Dual<f64>) -> Self {
+        let v = self.value.powf(b.value);
+        let d = v * (b.deriv * self.value.ln() + b.value * self.deriv / self.value);
+        Self { value: v, deriv: d }
+    }
+
+    pub fn powf(self, b: f64) -> Self {
+        Self {
+            value: self.value.powf(b),
+            deriv: b * self.value.powf(b - 1.0) * self.deriv,
+        }
+    }
+
+    pub fn f_pow(a: f64, b: Self) -> Self {
+        let v = a.powf(b.value);
+        Self {
+            value: v,
+            deriv: v * a.ln() * b.deriv,
+        }
+    }
+
+    // Standard math functions
+    pub fn sin(self) -> Self {
+        Self { value: self.value.sin(), deriv: self.value.cos() * self.deriv }
+    }
+
+    pub fn cos(self) -> Self {
+        Self { value: self.value.cos(), deriv: -self.value.sin() * self.deriv }
+    }
+
+    pub fn tan(self) -> Self {
+        Self { value: self.value.tan(), deriv: self.deriv / (self.value.cos() * self.value.cos()) }
+    }
+
+    pub fn exp(self) -> Self {
+        let v = self.value.exp();
+        Self { value: v, deriv: v * self.deriv }
+    }
+
+    pub fn ln(self) -> Self {
+        Self { value: self.value.ln(), deriv: self.deriv / self.value }
+    }
+
+    pub fn sqrt(self) -> Self {
+        let v = self.value.sqrt();
+        Self { value: v, deriv: self.deriv / (2.0 * v) }
+    }
+
+    pub fn sinh(self) -> Self {
+        Self { value: self.value.sinh(), deriv: self.value.cosh() * self.deriv }
+    }
+
+    pub fn cosh(self) -> Self {
+        Self { value: self.value.cosh(), deriv: self.value.sinh() * self.deriv }
+    }
+
+    pub fn tanh(self) -> Self {
+        let t = self.value.tanh();
+        Self { value: t, deriv: (1.0 - t * t) * self.deriv }
+    }
+}
+
+// Unary minus
+impl Neg for Dual<f64> {
+    type Output = Self;
+    fn neg(self) -> Self::Output {
+        Self { value: -self.value, deriv: -self.deriv }
+    }
+}
+
+macro_rules! impl_op {
+    ($trait:ident, $method:ident, $op_dual_dual:expr, $op_dual_f:expr, $op_f_dual:expr) => {
+        // Dual-Dual
+        impl $trait<Dual<f64>> for Dual<f64> {
+            type Output = Dual<f64>;
+            fn $method(self, rhs: Dual<f64>) -> Self::Output {
+                $op_dual_dual(self, rhs)
+            }
+        }
+        
+        // Dual-Float
+        impl $trait<f64> for Dual<f64> {
+            type Output = Dual<f64>;
+            fn $method(self, rhs: f64) -> Self::Output {
+                $op_dual_f(self, rhs)
+            }
+        }
+        
+        // Float-Dual
+        impl $trait<Dual<f64>> for f64 {
+            type Output = Dual<f64>;
+            fn $method(self, rhs: Dual<f64>) -> Self::Output {
+                $op_f_dual(self, rhs)
+            }
+        }
+    };
+}
+
+impl_op!(Add, add,
+    |a: Dual<f64>, b: Dual<f64>| Dual::new(a.value + b.value, a.deriv + b.deriv),
+    |a: Dual<f64>, b: f64| Dual::new(a.value + b, a.deriv),
+    |a: f64, b: Dual<f64>| Dual::new(a + b.value, b.deriv)
+);
+
+impl_op!(Sub, sub,
+    |a: Dual<f64>, b: Dual<f64>| Dual::new(a.value - b.value, a.deriv - b.deriv),
+    |a: Dual<f64>, b: f64| Dual::new(a.value - b, a.deriv),
+    |a: f64, b: Dual<f64>| Dual::new(a - b.value, -b.deriv)
+);
+
+impl_op!(Mul, mul,
+    |a: Dual<f64>, b: Dual<f64>| Dual::new(a.value * b.value, a.deriv * b.value + a.value * b.deriv),
+    |a: Dual<f64>, b: f64| Dual::new(a.value * b, a.deriv * b),
+    |a: f64, b: Dual<f64>| Dual::new(a * b.value, a * b.deriv)
+);
+
+impl_op!(Div, div,
+    |a: Dual<f64>, b: Dual<f64>| Dual::new(a.value / b.value, (a.deriv * b.value - a.value * b.deriv) / (b.value * b.value)),
+    |a: Dual<f64>, b: f64| Dual::new(a.value / b, a.deriv / b),
+    |a: f64, b: Dual<f64>| Dual::new(a / b.value, (-a * b.deriv) / (b.value * b.value))
+);
+
+// ------------------------------------------------------------------------------------------------
+// API
+// ------------------------------------------------------------------------------------------------
+
+pub mod auto_diff {
+    use super::Dual;
+
+    pub fn constant(x: f64) -> Dual<f64> {
+        Dual::constant(x)
+    }
+
+    pub fn variable(x: f64) -> Dual<f64> {
+        Dual::variable(x)
+    }
+
+    pub fn diff<F>(f: F, x: f64) -> f64
+    where
+        F: Fn(Dual<f64>) -> Dual<f64>,
+    {
+        let res = f(variable(x));
+        res.deriv
+    }
+}
+
+// ------------------------------------------------------------------------------------------------
+// Main / Tests
+// ------------------------------------------------------------------------------------------------
+
+fn main() {
+    println!("=== CALPHAD Example ===\n");
+
+    let g = |t: Dual<f64>| 10.0 + t * 2.5 - t * 3.0 * t.ln() + t.powf(2.0) * 0.5;
+    let dg = auto_diff::diff(g, 300.0);
+    let dg_analytical = |t: f64| 2.5 - 3.0 * (t.ln() + 1.0) + t;
+    
+    println!("> G(T)  = 10.0 + 2.5*T - 3.0*T*ln(T) + 0.5*T^2");
+    println!("> G'(300.0) [AutoDiff]   = {}", dg);
+    println!("> G'(300.0) [Analytical] = {}", dg_analytical(300.0));
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn assert_diff(f: impl Fn(Dual<f64>) -> Dual<f64>, df_analytical: impl Fn(f64) -> f64, x: f64) {
+        let expected = df_analytical(x);
+        let actual = auto_diff::diff(f, x);
+        let diff = (expected - actual).abs();
+        assert!(diff < 1e-9, "x={} | expected={}, actual={}, diff={}", x, expected, actual, diff);
+    }
+
+    #[test]
+    fn test_unary_minus() {
+        assert_diff(|x| -x, |_| -1.0, 2.0);
+    }
+
+    #[test]
+    fn test_arithmetic() {
+        let x0 = 2.0;
+        assert_diff(|x| x + x, |_| 2.0, x0);
+        assert_diff(|x| x + 3.0, |_| 1.0, x0);
+        assert_diff(|x| 3.0 + x, |_| 1.0, x0);
+
+        assert_diff(|x| x - x, |_| 0.0, x0);
+        assert_diff(|x| x - 3.0, |_| 1.0, x0);
+        assert_diff(|x| 3.0 - x, |_| -1.0, x0);
+
+        assert_diff(|x| x * x, |x| 2.0 * x, x0);
+        assert_diff(|x| x * 3.0, |_| 3.0, x0);
+        assert_diff(|x| 3.0 * x, |_| 3.0, x0);
+
+        assert_diff(|x| x / x, |_| 0.0, x0);
+        assert_diff(|x| x / 3.0, |_| 1.0 / 3.0, x0);
+        assert_diff(|x| 3.0 / x, |x| -3.0 / (x * x), x0);
+    }
+
+    #[test]
+    fn test_power() {
+        let x0 = 2.0;
+        assert_diff(|x| x.pow(x), |x| (x.powf(x)) * (x.ln() + 1.0), x0);
+        assert_diff(|x| x.powf(3.0), |x| 3.0 * (x.powf(2.0)), x0);
+        assert_diff(|x| Dual::f_pow(3.0, x), |x| (3.0_f64.powf(x)) * 3.0_f64.ln(), x0);
+    }
+
+    #[test]
+    fn test_math_functions() {
+        let x0 = 2.0;
+        assert_diff(|x| x.sin(), |x| x.cos(), x0);
+        assert_diff(|x| x.cos(), |x| -x.sin(), x0);
+        assert_diff(|x| x.tan(), |x| 1.0 / (x.cos().powi(2)), x0);
+        assert_diff(|x| x.exp(), |x| x.exp(), x0);
+        assert_diff(|x| x.ln(), |x| 1.0 / x, x0);
+        assert_diff(|x| x.sqrt(), |x| 0.5 / x.sqrt(), x0);
+        assert_diff(|x| x.sinh(), |x| x.cosh(), x0);
+        assert_diff(|x| x.cosh(), |x| x.sinh(), x0);
+        assert_diff(|x| x.tanh(), |x| 1.0 - x.tanh().powi(2), x0);
+    }
+
+    #[test]
+    fn test_calphad_example() {
+        let g = |t: Dual<f64>| 10.0 + t * 2.5 - t * 3.0 * t.ln() + t.powf(2.0) * 0.5;
+        let dg_analytical = |t: f64| 2.5 - 3.0 * (t.ln() + 1.0) + t;
+        assert_diff(g, dg_analytical, 300.0);
+    }
+}
