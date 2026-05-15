@@ -3,7 +3,7 @@ pub mod data;
 pub mod thermo;
 
 use autodiff::{diff, Dual};
-use data::{get_calcite, get_co2, get_diaspore, get_h2o, get_lime};
+use data::{get_al2o3, get_calcite, get_co2, get_diaspore, get_h2o, get_lime};
 use thermo::{cp, enthalpy, entropy, gibbs, T_REF};
 
 // ------------------------------------------------------------------------------------------------
@@ -13,12 +13,10 @@ use thermo::{cp, enthalpy, entropy, gibbs, T_REF};
 fn main() {
     sample_thermo_evaluation();
     sample_autodiff_evaluation();
+    sample_species_tabulation();
     sample_equilibrium_evaluation();
     sample_composition_tabulation();
 }
-
-// ... unchanged functions up to sample_equilibrium_evaluation ...
-// Wait, I must replace the exact block. Let's do it carefully.
 
 fn sample_thermo_evaluation() {
     println!("=== Thermodynamic Properties ===\n");
@@ -210,22 +208,57 @@ pub fn evaluate_local_equilibrium(
     }
 }
 
+pub fn compute_elemental_fractions(
+    mix: &[(&thermo::Substance, f64)],
+    elements: &[&str],
+) -> Vec<f64> {
+    let mut moles_of_elements = vec![0.0; elements.len()];
+
+    for (substance, amount) in mix {
+        for (i, &el) in elements.iter().enumerate() {
+            if let Some(&moles_in_substance) = substance.elements.get(el) {
+                moles_of_elements[i] += amount * moles_in_substance;
+            }
+        }
+    }
+
+    let total_moles: f64 = moles_of_elements.iter().sum();
+
+    if total_moles > 0.0 {
+        moles_of_elements
+            .into_iter()
+            .map(|m| m / total_moles)
+            .collect()
+    } else {
+        moles_of_elements
+    }
+}
+
 fn sample_equilibrium_evaluation() {
     let calcite = get_calcite();
     let lime = get_lime();
     let co2 = get_co2();
     let diaspore = get_diaspore();
     let h2o = get_h2o();
+    let al2o3 = get_al2o3();
 
-    let species = [&calcite, &lime, &co2, &diaspore, &h2o];
-    let names = ["CaCO3(s)", "CaO(s)", "CO2(g)", "Diaspore(s)", "H2O(g)"];
+    let species = [&calcite, &lime, &co2, &diaspore, &h2o, &al2o3];
+    let names = [
+        "CaCO3(s)",
+        "CaO(s)",
+        "CO2(g)",
+        "Diaspore(s)",
+        "H2O(g)",
+        "Al2O3(s)",
+    ];
     let elements = ["Ca", "C", "O", "Al", "H"];
 
     let t = 1173.15_f64; // K
     let p_user = 1.0_f64; // bar
 
-    // Mixture representing 1 mole of atoms of CaCO3 (5 atoms) + 1 mole of atoms of Diaspore (4 atoms). Total = 9 atoms.
-    let b = [1.0 / 9.0, 1.0 / 9.0, 5.0 / 9.0, 1.0 / 9.0, 1.0 / 9.0];
+    // Mixture representing 1 mole of CaCO3 + 1 mole of Diaspore
+    let mix = [(&calcite, 1.0), (&diaspore, 1.0)];
+    let b = compute_elemental_fractions(&mix, &elements);
 
     println!("\n=== Generic CALPHAD Local Equilibrium ===");
     println!("T = {} K, P = {} bar", t, p_user);
@@ -235,7 +268,7 @@ fn sample_equilibrium_evaluation() {
     let equilibrium_phi = evaluate_local_equilibrium(&species, &elements, &b, t, p_user);
 
     println!("\nEquilibrium amounts:");
-    for i in 0..5 {
+    for i in 0..6 {
         println!("  {:<12}: {:.6} mol", names[i], equilibrium_phi[i]);
     }
 }
@@ -246,31 +279,91 @@ fn sample_composition_tabulation() {
     let co2 = get_co2();
     let diaspore = get_diaspore();
     let h2o = get_h2o();
+    let al2o3 = get_al2o3();
 
-    let species = [&calcite, &lime, &co2, &diaspore, &h2o];
+    let species = [&calcite, &lime, &co2, &diaspore, &h2o, &al2o3];
     let elements = ["Ca", "C", "O", "Al", "H"];
 
     // Mix corresponding to 1 part CaCO3, 1 part Diaspore
-    let b = [1.0 / 9.0, 1.0 / 9.0, 5.0 / 9.0, 1.0 / 9.0, 1.0 / 9.0];
+    let mix = [(&calcite, 1.0), (&diaspore, 1.0)];
+    let b = compute_elemental_fractions(&mix, &elements);
 
     println!("\n=== Composition Tabulation (300 K - 1200 K) ===");
     println!(
-        "{:<10} | {:<12} | {:<12} | {:<12} | {:<14} | {:<12}",
-        "T (K)", "CaCO3 (mol)", "CaO (mol)", "CO2 (mol)", "Diaspore (mol)", "H2O (mol)"
+        "{:<10} | {:<12} | {:<12} | {:<12} | {:<14} | {:<12} | {:<12}",
+        "T (K)",
+        "CaCO3 (mol)",
+        "CaO (mol)",
+        "CO2 (mol)",
+        "Diaspore (mol)",
+        "H2O (mol)",
+        "Al2O3 (mol)"
     );
     println!(
-        "{:-<10}-+-{:-<12}-+-{:-<12}-+-{:-<12}-+-{:-<14}-+-{:-<12}-",
-        "", "", "", "", "", ""
+        "{:-<10}-+-{:-<12}-+-{:-<12}-+-{:-<12}-+-{:-<14}-+-{:-<12}-+-{:-<12}-",
+        "", "", "", "", "", "", ""
     );
 
     let mut t = 300.0;
     while t <= 1200.0 {
         let phi = evaluate_local_equilibrium(&species, &elements, &b, t, 1.0);
         println!(
-            "{:<10.2} | {:<12.6} | {:<12.6} | {:<12.6} | {:<14.6} | {:<12.6}",
-            t, phi[0], phi[1], phi[2], phi[3], phi[4]
+            "{:<10.2} | {:<12.6} | {:<12.6} | {:<12.6} | {:<14.6} | {:<12.6} | {:<12.6}",
+            t, phi[0], phi[1], phi[2], phi[3], phi[4], phi[5]
         );
         t += 100.0;
+    }
+    println!();
+}
+
+fn sample_species_tabulation() {
+    let calcite = get_calcite();
+    let lime = get_lime();
+    let co2 = get_co2();
+    let diaspore = get_diaspore();
+    let h2o = get_h2o();
+    let al2o3 = get_al2o3();
+
+    let species = [&calcite, &lime, &co2, &diaspore, &h2o, &al2o3];
+    let names = [
+        "CaCO3(s)",
+        "CaO(s)",
+        "CO2(g)",
+        "Diaspore(s)",
+        "H2O(g)",
+        "Al2O3(s)",
+    ];
+
+    println!("\n=== Species Thermodynamic Tabulation (300 K - 1200 K) ===");
+    for (i, s) in species.iter().enumerate() {
+        println!("\n--- {} ---", names[i]);
+        println!(
+            "{:<8} | {:<12} | {:<12} | {:<14} | {:<14}",
+            "T (K)", "Cp", "S", "-(G-H298)/T", "H-H298"
+        );
+        println!(
+            "{:-<8}-+-{:-<12}-+-{:-<12}-+-{:-<14}-+-{:-<14}-",
+            "", "", "", "", ""
+        );
+
+        let mut t = 300.0;
+        let coefs = s.unpack_coefs::<f64>();
+
+        while t <= 1200.0 {
+            let cp_val = cp(&coefs, t);
+            let h_val = enthalpy(T_REF, s.delta_hf, &coefs, t);
+            let s_val = entropy(T_REF, s.s0, &coefs, t);
+            let g_val = gibbs(T_REF, s.delta_hf, s.s0, &coefs, t);
+
+            let free_energy_func = -(g_val - s.delta_hf) / t;
+            let h_diff = h_val - s.delta_hf;
+
+            println!(
+                "{:<8.2} | {:<12.4} | {:<12.4} | {:<14.4} | {:<14.2}",
+                t, cp_val, s_val, free_energy_func, h_diff
+            );
+            t += 100.0;
+        }
     }
     println!();
 }
