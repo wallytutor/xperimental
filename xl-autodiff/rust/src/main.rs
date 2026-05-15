@@ -68,14 +68,29 @@ fn sample_equilibrium_evaluation() {
     let lime = get_lime();
     let co2 = get_co2();
 
-    // Standard states for the decomposition of Calcite
-    // CaCO3(s) <=> CaO(s) + CO2(g)
-    let t = 1173.15; // K
-    let p_total = 1.0; // bar
-    let n_inert = 1.0; // mol (e.g., N2) to allow a partial pressure equilibrium without boundary hits
-    let r = 8.314; // J/(mol*K)
+    let species = [&calcite, &lime, &co2];
+    let names = ["CaCO3(s)", "CaO(s)", "CO2(g)"];
 
-    // Compute standard Gibbs free energies at T
+    let t = 573.15_f64; // K (approx 900 C)
+    let p_user = 1.0_f64; // bar (user provided pressure)
+    let r = 8.314_f64; // J/(mol*K)
+
+    // User provided system composition (N = 1 mole of elements)
+    // Let's say we have a mixture that corresponds to 1 mole of CaCO3 initially,
+    // which has 1 Ca, 1 C, 3 O. To make N=1 mole of atoms:
+    // b_Ca = 0.2, b_C = 0.2, b_O = 0.6
+    let b_ca = 0.2_f64;
+    let b_c = 0.2_f64;
+    let b_o = 0.6_f64;
+    let n_total_atoms = 1.0_f64;
+
+    println!("\n=== CALPHAD Equilibrium Evaluation ===");
+    println!("T = {} K, P = {} bar", t, p_user);
+    println!("System composition (mole fractions of elements):");
+    println!("  x_Ca = {}, x_C = {}, x_O = {}", b_ca, b_c, b_o);
+
+    // Compute molar Gibbs energies of the phases at T
+    // g_k = G_k^0 + RT ln(P) for gases, g_k = G_k^0 for solids
     let g_calcite_0 = gibbs(
         T_REF,
         calcite.delta_hf,
@@ -92,66 +107,62 @@ fn sample_equilibrium_evaluation() {
     );
     let g_co2_0 = gibbs(T_REF, co2.delta_hf, co2.s0, &co2.unpack_coefs::<f64>(), t);
 
-    println!("\n=== Equilibrium Evaluation (CaCO3 <=> CaO + CO2) ===");
+    // For CO2, add the pressure term
+    let g_co2_p = g_co2_0 + r * t * p_user.ln();
+
+    let g_phases = [g_calcite_0, g_lime_0, g_co2_p];
+
+    // In CALPHAD, we evaluate the Gibbs energy of the system as G = \sum phi_k g_k
+    // subject to mass conservation: \sum phi_k a_{jk} = b_j * N_total_atoms
+    // For 3 phases and rank 2 composition matrix, the solution lies on a 1D line:
+    // phi_calcite = x
+    // phi_lime = b_ca * n_total_atoms - x
+    // phi_co2 = b_c * n_total_atoms - x
+
+    // We evaluate the valid vertices (where phi_k >= 0)
+    let max_x = (b_ca * n_total_atoms).min(b_c * n_total_atoms);
+
+    // Vertex 1: x = 0 (Complete decomposition)
+    let phi_v1 = [0.0, b_ca * n_total_atoms, b_c * n_total_atoms];
+    let g_v1 = phi_v1[0] * g_phases[0] + phi_v1[1] * g_phases[1] + phi_v1[2] * g_phases[2];
+
+    // Vertex 2: x = max_x (Complete formation of CaCO3)
+    let phi_v2 = [
+        max_x,
+        b_ca * n_total_atoms - max_x,
+        b_c * n_total_atoms - max_x,
+    ];
+    let g_v2 = phi_v2[0] * g_phases[0] + phi_v2[1] * g_phases[1] + phi_v2[2] * g_phases[2];
+
+    println!("\nEvaluating Gibbs Energy of system for valid assemblages (G = \\sum phi_k g_k):");
     println!(
-        "T = {} K, P = {} bar, inert gas = {} mol",
-        t, p_total, n_inert
+        "  Assemblage 1 (Decomposed): phi = {:?}, G_sys = {:.2} J",
+        phi_v1, g_v1
+    );
+    println!(
+        "  Assemblage 2 (Associated): phi = {:?}, G_sys = {:.2} J",
+        phi_v2, g_v2
     );
 
-    // Objective function: affinity or dG/dx. We want f(x) = 0.
-    // f(x) = G0_CaO + G0_CO2(P_CO2) - G0_CaCO3
-    // P_CO2 = p_total * x / (x + n_inert)
-    // f(x) = (g_lime_0 + g_co2_0 - g_calcite_0) + R*T * ln(x / (x + n_inert))
+    let equilibrium_phi = if g_v1 < g_v2 { phi_v1 } else { phi_v2 };
 
-    // We implement it using Dual to automatically get the exact analytical derivative for Newton-Raphson
-    let f = |x: Dual<f64>| -> Dual<f64> {
-        let delta_g0 = Dual::constant(g_lime_0 + g_co2_0 - g_calcite_0);
-        let rt = Dual::constant(r * t);
-        let p = Dual::constant(p_total);
-        let inert = Dual::constant(n_inert);
-
-        let p_co2 = p * x / (x + inert);
-        delta_g0 + rt * p_co2.ln()
-    };
-
-    let mut x = 0.1; // Initial guess for extent of reaction (mol)
-    println!("\nNewton-Raphson iterations:");
-    for i in 1..=20 {
-        let res = f(Dual::variable(x));
-        let val = res.value;
-        let deriv = res.deriv;
-
-        println!(
-            "  Step {}: x = {:.6}, f(x) = {:>10.2}, f'(x) = {:>10.2}",
-            i, x, val, deriv
-        );
-
-        if val.abs() < 1e-4 {
-            println!("  Converged successfully!");
-            break;
-        }
-
-        let mut step = val / deriv;
-
-        // Prevent huge steps and keep x within valid bounds (0, 1)
-        if step > 0.5 {
-            step = 0.5;
-        }
-        if step < -0.5 {
-            step = -0.5;
-        }
-
-        x = x - step;
-        if x <= 1e-6 {
-            x = 1e-6;
-        }
-        if x >= 0.999999 {
-            x = 0.999999;
-        }
+    println!("\nEquilibrium amounts (Moles of phases):");
+    for i in 0..3 {
+        println!("  {:<10}: {:.6} mol", names[i], equilibrium_phi[i]);
     }
 
-    println!("\nEquilibrium amounts:");
-    println!("  CaCO3(s) : {:.6} mol", 1.0 - x);
-    println!("  CaO(s)   : {:.6} mol", x);
-    println!("  CO2(g)   : {:.6} mol", x);
+    // Check mass conservation
+    let mut check_ca = 0.0;
+    let mut check_c = 0.0;
+    let mut check_o = 0.0;
+    for i in 0..3 {
+        check_ca += equilibrium_phi[i] * species[i].elements.get("Ca").copied().unwrap_or(0.0);
+        check_c += equilibrium_phi[i] * species[i].elements.get("C").copied().unwrap_or(0.0);
+        check_o += equilibrium_phi[i] * species[i].elements.get("O").copied().unwrap_or(0.0);
+    }
+
+    println!("\nMass conservation check:");
+    println!("  Ca: {:.6} == {:.6}", check_ca, b_ca * n_total_atoms);
+    println!("  C : {:.6} == {:.6}", check_c, b_c * n_total_atoms);
+    println!("  O : {:.6} == {:.6}", check_o, b_o * n_total_atoms);
 }

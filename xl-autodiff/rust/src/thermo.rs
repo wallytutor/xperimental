@@ -1,4 +1,5 @@
 use crate::autodiff::Numeric;
+use std::collections::HashMap;
 
 pub const T_REF: f64 = 298.15;
 
@@ -41,6 +42,7 @@ pub struct Substance {
     pub s0: f64,
     pub cp: f64,
     pub raw_coefs: Vec<f64>,
+    pub elements: HashMap<String, f64>,
 }
 
 impl Substance {

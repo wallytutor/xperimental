@@ -1,4 +1,5 @@
 use crate::thermo::Substance;
+use std::collections::HashMap;
 
 pub fn get_calcite() -> Substance {
     Substance {
@@ -9,6 +10,11 @@ pub fn get_calcite() -> Substance {
         s0: 91.780,
         cp: 83.47,
         raw_coefs: vec![99.72, 0.02692, -2158000.0],
+        elements: HashMap::from([
+            ("Ca".to_string(), 1.0),
+            ("C".to_string(), 1.0),
+            ("O".to_string(), 3.0),
+        ]),
     }
 }
 
@@ -21,6 +27,7 @@ pub fn get_lime() -> Substance {
         s0: 38.100,
         cp: 42.05,
         raw_coefs: vec![51.86, 0.00244, -937000.0],
+        elements: HashMap::from([("Ca".to_string(), 1.0), ("O".to_string(), 1.0)]),
     }
 }
 
@@ -33,5 +40,6 @@ pub fn get_co2() -> Substance {
         s0: 213.785,
         cp: 37.14,
         raw_coefs: vec![33.98, 0.02388, -352000.0],
+        elements: HashMap::from([("C".to_string(), 1.0), ("O".to_string(), 2.0)]),
     }
 }
