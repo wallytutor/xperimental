@@ -217,6 +217,7 @@ pub trait Numeric:
     + Div<Self, Output = Self>
 {
     fn from_f64(v: f64) -> Self;
+    fn to_f64(self) -> f64;
     fn ln(self) -> Self;
     fn powi(self, n: i32) -> Self;
 }
@@ -224,6 +225,9 @@ pub trait Numeric:
 impl Numeric for f64 {
     fn from_f64(v: f64) -> Self {
         v
+    }
+    fn to_f64(self) -> f64 {
+        self
     }
     fn ln(self) -> Self {
         f64::ln(self)
@@ -236,6 +240,9 @@ impl Numeric for f64 {
 impl Numeric for Dual<f64> {
     fn from_f64(v: f64) -> Self {
         Dual::constant(v)
+    }
+    fn to_f64(self) -> f64 {
+        self.value
     }
     fn ln(self) -> Self {
         self.ln()

@@ -2,9 +2,9 @@ pub mod autodiff;
 pub mod data;
 pub mod thermo;
 
-use autodiff::{diff, Dual};
+use autodiff::{Dual, diff};
 use data::{get_al2o3, get_calcite, get_co2, get_diaspore, get_h2o, get_lime};
-use thermo::{cp, enthalpy, entropy, gibbs, T_REF};
+use thermo::T_REF;
 
 // ------------------------------------------------------------------------------------------------
 // Main
@@ -29,40 +29,21 @@ fn sample_thermo_evaluation() {
     for (i, s) in species.iter().enumerate() {
         let names = ["Calcite", "Lime", "CO2"];
         println!("--- {} ---", names[i]);
-        let coefs: Vec<f64> = s.unpack_coefs();
-        println!("Cp ...........: {:.6}", cp(&coefs, 298.15));
-        println!(
-            "Enthalpy .....: {:.6}",
-            enthalpy(T_REF, s.delta_hf, &coefs, 300.0)
-        );
-        println!("Entropy ......: {:.6}", entropy(T_REF, s.s0, &coefs, 300.0));
-        println!(
-            "Gibbs ........: {:.6}\n",
-            gibbs(T_REF, s.delta_hf, s.s0, &coefs, 300.0)
-        );
+        println!("Cp ...........: {:.6}", s.cp(298.15));
+        println!("Enthalpy .....: {:.6}", s.enthalpy(300.0));
+        println!("Entropy ......: {:.6}", s.entropy(300.0));
+        println!("Gibbs ........: {:.6}\n", s.gibbs(300.0));
     }
 }
 
 fn sample_autodiff_evaluation() {
     let calcite = get_calcite();
-    let g = |t: Dual<f64>| {
-        let coefs: Vec<Dual<f64>> = calcite.unpack_coefs();
-        gibbs(
-            Dual::constant(T_REF),
-            Dual::constant(calcite.delta_hf),
-            Dual::constant(calcite.s0),
-            &coefs,
-            t,
-        )
-    };
+    let g = |t: Dual<f64>| calcite.gibbs(t);
 
     let dg = diff(g, 300.0);
     println!("\nAutodiff Verification (Calcite):");
     println!("dG/dT = {:.6}", dg);
-    println!(
-        "-S(T) = {:.6}",
-        -entropy(T_REF, calcite.s0, &calcite.unpack_coefs::<f64>(), 300.0)
-    );
+    println!("-S(T) = {:.6}", -calcite.entropy(300.0));
 }
 
 fn find_particular_solution(a: &[Vec<f64>], b: &[f64], n_s: usize, n_e: usize) -> Vec<f64> {
@@ -101,7 +82,7 @@ pub fn evaluate_local_equilibrium(
     let mut g_k = vec![0.0; n_s];
     for i in 0..n_s {
         let s = species[i];
-        let mut g = gibbs(T_REF, s.delta_hf, s.s0, &s.unpack_coefs::<f64>(), t);
+        let mut g = s.gibbs(t);
         if s.molar_volume > 20.0 {
             // Gas heuristic
             g += r * t * p.ln();
@@ -315,8 +296,7 @@ fn sample_composition_tabulation() {
     let mut m_sys = 0.0; // Mass is constant across all temperatures
     for i in 0..species.len() {
         let s = species[i];
-        let coefs = s.unpack_coefs::<f64>();
-        let h_i = enthalpy(T_REF, s.delta_hf, &coefs, T_REF);
+        let h_i = s.enthalpy(T_REF);
         h_sys_ref += phi_ref[i] * h_i;
         m_sys += phi_ref[i] * s.molar_mass;
     }
@@ -328,11 +308,14 @@ fn sample_composition_tabulation() {
         let mut h_sys = 0.0;
         for i in 0..species.len() {
             let s = species[i];
-            let coefs = s.unpack_coefs::<f64>();
-            let h_i = enthalpy(T_REF, s.delta_hf, &coefs, t);
+            let h_i = s.enthalpy(t);
             h_sys += phi[i] * h_i;
         }
-        let h_sys_mass_change = if m_sys > 0.0 { (h_sys - h_sys_ref) / m_sys } else { 0.0 };
+        let h_sys_mass_change = if m_sys > 0.0 {
+            (h_sys - h_sys_ref) / m_sys
+        } else {
+            0.0
+        };
 
         println!(
             "{:<10.2} | {:<12.6} | {:<12.6} | {:<12.6} | {:<14.6} | {:<12.6} | {:<12.6} | {:<14.2}",
@@ -374,13 +357,11 @@ fn sample_species_tabulation() {
         );
 
         let mut t = 300.0;
-        let coefs = s.unpack_coefs::<f64>();
-
         while t <= 1200.0 {
-            let cp_val = cp(&coefs, t);
-            let h_val = enthalpy(T_REF, s.delta_hf, &coefs, t);
-            let s_val = entropy(T_REF, s.s0, &coefs, t);
-            let g_val = gibbs(T_REF, s.delta_hf, s.s0, &coefs, t);
+            let cp_val = s.cp(t);
+            let h_val = s.enthalpy(t);
+            let s_val = s.entropy(t);
+            let g_val = s.gibbs(t);
 
             let free_energy_func = -(g_val - s.delta_hf) / t;
             let h_diff = h_val - s.delta_hf;
