@@ -122,14 +122,22 @@ static double get_ccoef_val(int iband, int j, double Mr) {
  * Public API
  */
 
-void wsgg_coefs(double T, double P, double x_h2o, double x_co2, double fvsoot, double *kabs, double *awts) {
+void wsgg_coefs(
+        double T,
+        double P,
+        double x_h2o,
+        double x_co2,
+        double fvsoot,
+        double *kabs,
+        double *awts
+    ) {
     double P_atm = P / 101325.0;
     double P_h2o = P_atm * x_h2o;
     double P_co2 = P_atm * x_co2;
-    
+
     double Mr = P_h2o / (P_co2 + P_TOL);
     double Ml = Mr < MR_LIM_INF ? Mr : MR_LIM_INF;
-    
+
     double Mr_clipped;
     double T_clipped;
     double Tr;
@@ -139,7 +147,7 @@ void wsgg_coefs(double T, double P, double x_h2o, double x_co2, double fvsoot, d
     Mr_clipped = Mr;
     if (Mr_clipped < MR_LIM_CO2) Mr_clipped = MR_LIM_CO2;
     if (Mr_clipped > MR_LIM_H2O) Mr_clipped = MR_LIM_H2O;
-    
+
     /* Clip T and normalize to Tr */
     T_clipped = T;
     if (T_clipped < T_MIN) T_clipped = T_MIN;
@@ -150,13 +158,13 @@ void wsgg_coefs(double T, double P, double x_h2o, double x_co2, double fvsoot, d
         /* 1. Evaluate baseline absorption and weight */
         double kabs_val = 0.0;
         double awts_val = 0.0;
-        
+
         if (iband > 0) {
             kabs_val = evaluate_polynomial(D_COEF[iband - 1], Mr_clipped) * (P_co2 + P_h2o);
         } else {
             kabs_val = 0.0;
         }
-        
+
         {
             double Tr_pow = 1.0;
             int j;
@@ -166,14 +174,14 @@ void wsgg_coefs(double T, double P, double x_h2o, double x_co2, double fvsoot, d
                 Tr_pow *= Tr;
             }
         }
-        
+
         /* 2. Apply CO2-rich correction */
         if (Ml < MR_LIM_CO2) {
             double f = (MR_LIM_CO2 - Ml) / MR_LIM_CO2;
             double kco2_pfac = KCO2[iband] * P_co2;
-            
+
             kabs_val = f * kco2_pfac + (1.0 - f) * kabs_val;
-            
+
             {
                 double bco2_val = 0.0;
                 if (iband > 0) {
@@ -189,14 +197,14 @@ void wsgg_coefs(double T, double P, double x_h2o, double x_co2, double fvsoot, d
                 awts_val = f * bco2_val + (1.0 - f) * awts_val;
             }
         }
-        
+
         /* 3. Apply H2O-rich correction */
         if (Ml > MR_LIM_H2O) {
             double f = (MR_LIM_INF - Ml) / (MR_LIM_INF - MR_LIM_H2O);
             double kh2o_pfac = KH2O[iband] * P_h2o;
-            
+
             kabs_val = f * kabs_val + (1.0 - f) * kh2o_pfac;
-            
+
             {
                 double bh2o_val = 0.0;
                 if (iband > 0) {
@@ -212,27 +220,34 @@ void wsgg_coefs(double T, double P, double x_h2o, double x_co2, double fvsoot, d
                 awts_val = f * awts_val + (1.0 - f) * bh2o_val;
             }
         }
-        
+
         /* 4. Add soot volume fraction contribution */
         if (fvsoot > 0.0) {
             kabs_val += 1817.0 * fvsoot * (Tr * T_RED);
         }
-        
+
         kabs[iband] = kabs_val;
         awts[iband] = awts_val;
     }
 }
 
-double wsgg_emissivity(double L, double T, double P, double x_h2o, double x_co2, double fvsoot) {
+double wsgg_emissivity(
+        double L,
+        double T,
+        double P,
+        double x_h2o,
+        double x_co2,
+        double fvsoot
+    ) {
     double kabs[5];
     double awts[5];
     double P_atm = P / 101325.0;
     double P_h2o = P_atm * x_h2o;
     double P_co2 = P_atm * x_co2;
     double pl = (P_h2o + P_co2) * L;
-    
+
     wsgg_coefs(T, P, x_h2o, x_co2, fvsoot, kabs, awts);
-    
+
     {
         double eps = 0.0;
         int i;

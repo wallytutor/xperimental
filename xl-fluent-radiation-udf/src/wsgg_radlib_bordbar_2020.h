@@ -30,7 +30,14 @@ extern "C" {
  * Returns:
  *   The total integrated gas emissivity (dimensionless, usually in [0, 1]).
  */
-double wsgg_emissivity(double L, double T, double P, double x_h2o, double x_co2, double fvsoot);
+double wsgg_emissivity(
+    double L,
+    double T,
+    double P,
+    double x_h2o,
+    double x_co2,
+    double fvsoot
+);
 
 /**
  * Helper function exposing the intermediate weighted sum of gray gases (WSGG)
@@ -46,7 +53,15 @@ double wsgg_emissivity(double L, double T, double P, double x_h2o, double x_co2,
  *   kabs   - Output array for the 5 gas absorption coefficients [1/m] (must be size 5).
  *   awts   - Output array for the 5 gray gas fractional weights [-] (must be size 5).
  */
-void wsgg_coefs(double T, double P, double x_h2o, double x_co2, double fvsoot, double *kabs, double *awts);
+void wsgg_coefs(
+    double T,
+    double P,
+    double x_h2o,
+    double x_co2,
+    double fvsoot,
+    double *kabs,
+    double *awts
+);
 
 #ifdef __cplusplus
 }

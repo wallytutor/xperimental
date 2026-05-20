@@ -51,9 +51,13 @@ Intermediate Band-by-Band Coefficients:
 
 ---
 
-## 📊 Comprehensive `ctypes` Validation Results
+## 📊 Validation Results
 
 *Work in progress*
+
+- [ ] Reproduce *Fig. 2* from [Bordbar (2014)](https://doi.org/10.1016/j.combustflame.2014.03.013)
+
+- [ ] Reproduce *Fig. 2* from [Bordbar (2021)](https://doi.org/10.1016/j.ijheatmasstransfer.2021.121207) (tentative, as it is the previous version of the model that is implemented here).
 
 ---
 
