@@ -8,14 +8,15 @@ All the source files are located in the [src/](src/) directory:
 
 - [wsgg_radlib_bordbar_2020.c](src/wsgg_radlib_bordbar_2020.c) — Highly-optimized implementation using Horner's method and embedding coefficients directly.
 
+- [wsgg_radlib.py](src/wsgg_radlib.py) - Python interface for evaluating the model using ctypes.
+
 - [main.c](src/main.c) - Simple illustrative C program showing direct linkage and execution.
 
 - [Makefile](src/Makefile) - Linux build script.
 
 - [build.ps1](build.ps1) - PowerShell script for compiling shared DLL libraries using Mingw64 GCC.
 
-- [validate.py](validate.py) - ctypes interface for evaluating the model.
-
+- [wsgg_check.py](wsgg_check.py) - Sample Python script for evaluating the model.
 
 ---
 
