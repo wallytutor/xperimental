@@ -1,0 +1,5 @@
+wsgg_app*
+*.exe
+*.dll
+*.so
+*.o
