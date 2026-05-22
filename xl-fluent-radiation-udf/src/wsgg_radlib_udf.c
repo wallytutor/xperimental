@@ -14,13 +14,16 @@
 // DEFINITIONS
 // ---------------------------------------------------------------------------
 
+#define P_REFERENCE 101325.0
+#define R_UNIVERSAL 8.314462
+
 // Define how many gray gases your WSGG model uses
 #define NUM_GRAY_GASES 5
 
 // UDM Slot Assignments (Indices 0 to 3)
 #define UDM_KABS 0
-#define UDM_AWTS NUM_GRAY_GASES
-#define UDM_MW   NUM_GRAY_GASES + UDM_AWTS
+#define UDM_AWTS (NUM_GRAY_GASES + UDM_KABS)
+#define UDM_MW   (NUM_GRAY_GASES + UDM_AWTS)
 
 // ---------------------------------------------------------------------------
 // GLOBALS
@@ -32,7 +35,10 @@ static int last_evaluated_iter = -1;
 // LOADING
 // ---------------------------------------------------------------------------
 
-DEFINE_EXECUTE_ON_LOADING(report_version, libname)
+DEFINE_EXECUTE_ON_LOADING(
+    macro_loading,
+    libname
+)
 {
     Message("\nLoading WSGG UDF library\n");
     Message("Number of gray gases: %d\n", NUM_GRAY_GASES);
@@ -42,11 +48,13 @@ DEFINE_EXECUTE_ON_LOADING(report_version, libname)
     Set_User_Memory_Name(UDM_KABS + 2, "Abs. coef. of gray gas 2");
     Set_User_Memory_Name(UDM_KABS + 3, "Abs. coef. of gray gas 3");
     Set_User_Memory_Name(UDM_KABS + 4, "Abs. coef. of gray gas 4");
+
     Set_User_Memory_Name(UDM_AWTS + 0, "Weight of gray gas 0");
     Set_User_Memory_Name(UDM_AWTS + 1, "Weight of gray gas 1");
     Set_User_Memory_Name(UDM_AWTS + 2, "Weight of gray gas 2");
     Set_User_Memory_Name(UDM_AWTS + 3, "Weight of gray gas 3");
     Set_User_Memory_Name(UDM_AWTS + 4, "Weight of gray gas 4");
+
     Set_User_Memory_Name(UDM_MW,       "Mixture molecular weight");
 }
 
@@ -54,7 +62,10 @@ DEFINE_EXECUTE_ON_LOADING(report_version, libname)
 // MAIN MODEL CALL
 // ---------------------------------------------------------------------------
 
-DEFINE_ADJUST(evaluate_wsgg_model, domain)
+DEFINE_ADJUST(
+    evaluate_wsgg_model,
+    domain
+)
 {
     int current_iter;
 
@@ -93,8 +104,7 @@ DEFINE_ADJUST(evaluate_wsgg_model, domain)
                     // - p is in Pascal (relative!!!!)
                     // - T is in K
                     // - mw_mix will be in kg/mol
-                    real p_ref = 101325.0;
-                    real mw_mix = rho * T * 8.314462 / (p + p_ref);
+                    real mw_mix = rho * T * R_UNIVERSAL / (p + P_REFERENCE);
 
                     // Mole fractions from mass fractions
                     // XXX hardcoded molecular weights, consider getting
@@ -146,8 +156,8 @@ DEFINE_WSGGM_ABS_COEFF(
     soot_conc,
     Tcell,
     nb,
-    ab_wsggm,
-    ab_soot
+    kabs,
+    ksoot
 )
 {
     Material *m = THREAD_MATERIAL(t);
@@ -155,14 +165,13 @@ DEFINE_WSGGM_ABS_COEFF(
     int ih2o = mixture_specie_index(m, "h2o");
 
     // Partial pressures
-    real p_ref = 101325.0;
-    real p_x = (p_t + p_ref) * (xi[ico2] + xi[ih2o]);
+    real p_x = (p_t + P_REFERENCE) * (xi[ico2] + xi[ih2o]);
 
     // Absorption coefficients
-    *ab_wsggm = C_UDMI(c, t, UDM_KABS + nb) * p_x;
+    *kabs = C_UDMI(c, t, UDM_KABS + nb) * p_x;
 
     // Soot absorption (set to zero for now)
-    *ab_soot =  0.0;
+    *ksoot =  0.0;
 }
 
 // ---------------------------------------------------------------------------
@@ -175,10 +184,10 @@ DEFINE_EMISSIVITY_WEIGHTING_FACTOR(
     t,
     T,
     nb,
-    emissivity_weighting_factor
+    awts
 )
 {
-    *emissivity_weighting_factor = C_UDMI(c, t, UDM_AWTS + nb);
+    *awts = C_UDMI(c, t, UDM_AWTS + nb);
 }
 
 // ---------------------------------------------------------------------------
