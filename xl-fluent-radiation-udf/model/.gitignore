@@ -1,0 +1,12 @@
+# Mesh files
+*.cgns
+*.msh
+
+# Fluent cleanup files
+cleanup-fluent-*
+
+# Fluent automatic transcript
+fluent-*.trn
+
+# Logs
+*.log

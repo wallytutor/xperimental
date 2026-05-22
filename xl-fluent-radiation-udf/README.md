@@ -74,3 +74,27 @@ This builds:
 - `wsgg_radlib.dll` or `libwsgg_radlib.so` — Standalone shared library.
 
 - `wsgg_app.exe` or `wsgg_app` — Direct C illustration program.
+
+## Geometry for testing
+
+Mesh is generated using gmsh, it is recommended to use `uv` for creating a virtual environment and install `gmsh` package.
+
+```bash
+uv venv --python 3.12 .venv
+
+# Activate in Windows
+. .venv/Scripts/activate
+
+# Activate in Linux
+source .venv/bin/activate
+
+# Install gmsh
+uv pip install gmsh
+
+```
+
+Once the virtual environment is activated and `gmsh` is installed, run the following command to generate the mesh from `model` directory:
+
+```bash
+python geometry.py
+```
