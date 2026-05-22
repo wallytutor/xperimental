@@ -2,11 +2,6 @@
 ; Set batch options and load mesh
 ; ---------------------------------------------------------------------------------------------------
 
-/file/set-batch-options
-    no ; Do you want to confirm overwrite? [yes]
-    no ; Do you want to exit on error? [no]
-    no ; Do you want to hide questions? [no]
-
 /file/import/cgns/mesh geometry.cgns
 /mesh/check
 /mesh/mesh-info 0
