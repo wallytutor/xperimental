@@ -20,3 +20,4 @@ fluent-*.trn
 
 # UDF related
 udfconfig-host.h
+src/libudf
