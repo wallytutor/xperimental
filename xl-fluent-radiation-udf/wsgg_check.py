@@ -2,6 +2,7 @@
 
 import sys
 from pathlib import Path
+from ruamel.yaml import YAML
 
 HERE = Path(__file__).resolve().parent
 """ Path to the current script directory. """
@@ -9,37 +10,47 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE / "src"))
 from wsgg_radlib import WsggRadlib
 
-# Define test cases: (L, T, P, x_h2o, x_co2, fvsoot)
-test_cases = [
-    # Standard case
-    (1.0, 1000.0, 101325.0, 0.18, 0.08, 0.0),
-    # High pressure, soot, intermediate Mr
-    (2.0, 1500.0, 202650.0, 0.10, 0.15, 1e-6),
-    # Low temperature, CO2-rich domain boundary
-    (0.5, 500.0, 101325.0, 0.05, 0.05, 0.0),
-    # High temperature, H2O-rich domain boundary
-    (1.0, 2000.0, 101325.0, 0.25, 0.02, 2.5e-6),
-    # Extreme temperature clipping (low)
-    (1.0, 250.0, 101325.0, 0.15, 0.10, 0.0),
-    # Extreme temperature clipping (high)
-    (1.0, 2600.0, 101325.0, 0.15, 0.10, 0.0),
-    # Extremely low CO2-rich mixture (Ml < 0.01)
-    (1.0, 1200.0, 101325.0, 0.20, 0.001, 0.0),
-    # Pure H2O limit (Ml > 4.0)
-    (1.0, 1200.0, 101325.0, 0.30, 0.0, 0.0),
-]
 
-wsgg = WsggRadlib(HERE)
+def format_array(arr):
+    """ Format a numpy array for printing. """
+    return "[" + ", ".join([f"{x:.4e}" for x in arr]) + "]"
 
-for idx, (L, T, P, x_h2o, x_co2, fvsoot) in enumerate(test_cases, 1):
+
+def evaluate_test_case(wsgg, data):
+    """ Evaluate a single test case. """
+    L      = data['L']
+    T      = data['T']
+    P      = data['P']
+    x_h2o  = data['x_h2o']
+    x_co2  = data['x_co2']
+    fvsoot = data['fvsoot']
+
     # Evaluate C model via ctypes
     eps_c = wsgg.emissivity(L, T, P, x_h2o, x_co2, fvsoot)
     kabs_c, awts_c = wsgg.coefficients(T, P, x_h2o, x_co2, fvsoot)
 
-    print(
-        f"Case {idx}: L={L}, T={T}, P={P:.1f}, x_h2o={x_h2o}, x_co2={x_co2}, fv={fvsoot}"
-    )
-
-    print("    C  kabs:", kabs_c)
-    print("    C  awts:", awts_c)
+    print(f"Case - {data['description']}")
+    print(f"    L      : {L}")
+    print(f"    T      : {T}")
+    print(f"    P      : {P}")
+    print(f"    x_h2o  : {x_h2o}")
+    print(f"    x_co2  : {x_co2}")
+    print(f"    fvsoot : {fvsoot}")
+    print("")
+    print(f"    eps    : {eps_c:.6f}")
+    print(f"    kabs   : {format_array(kabs_c)}")
+    print(f"    awts   : {format_array(awts_c)}")
     print("-" * 80)
+
+
+def main():
+    """ Main function. """
+    test_cases = YAML().load(open(HERE / "wsgg_check.yaml"))
+    wsgg = WsggRadlib(HERE)
+
+    for idx, data in enumerate(test_cases, 1):
+        evaluate_test_case(wsgg, data)
+
+
+if __name__ == "__main__":
+    main()

@@ -118,6 +118,16 @@ static double get_ccoef_val(int iband, int j, double Mr) {
 }
 
 
+static double evaluate_mr_base(double P_h2o, double P_co2){
+    double Mr = P_h2o / (P_co2 + P_TOL);
+    return Mr;
+}
+
+static double evaluate_ml_base(double Mr){
+    double Ml = Mr < MR_LIM_INF ? Mr : MR_LIM_INF;
+    return Ml;
+}
+
 /*
  * Public API
  */
@@ -135,8 +145,8 @@ void wsgg_coefs(
     double P_h2o = P_atm * x_h2o;
     double P_co2 = P_atm * x_co2;
 
-    double Mr = P_h2o / (P_co2 + P_TOL);
-    double Ml = Mr < MR_LIM_INF ? Mr : MR_LIM_INF;
+    double Mr = evaluate_mr_base(P_h2o, P_co2);
+    double Ml = evaluate_ml_base(Mr);
 
     double Mr_clipped;
     double T_clipped;

@@ -2,6 +2,8 @@
 
 Implements Weighted Sum of Gray Gases (WSGG) radiation properties model into a standalone, pure **C89 compliant module** with zero dependencies outside the standard math library.
 
+## 📁 Source Files
+
 All the source files are located in the [src/](src/) directory:
 
 - [wsgg_radlib_bordbar_2020.h](src/wsgg_radlib_bordbar_2020.h) - Public C89 header exposing the clean function signatures.
@@ -17,6 +19,32 @@ All the source files are located in the [src/](src/) directory:
 - [build.ps1](build.ps1) - PowerShell script for compiling shared DLL libraries using Mingw64 GCC.
 
 - [wsgg_check.py](wsgg_check.py) - Sample Python script for evaluating the model.
+
+---
+
+## 📋 Environment
+
+- Python 3.12
+- uv
+- gcc (on Windows, use MinGW64)
+
+### Create Virtual Environment
+
+It is recommended to use `uv` for creating a virtual environment. The following commands show how to create a virtual environment and install the required packages:
+
+```bash
+# Create environment
+uv venv --python 3.12 .venv
+
+# Activate in Windows
+. .venv/Scripts/activate
+
+# Activate in Linux
+source .venv/bin/activate
+
+# Install tools
+uv pip install gmsh numpy ruamel-yaml
+```
 
 ---
 
@@ -75,26 +103,16 @@ This builds:
 
 - `wsgg_app.exe` or `wsgg_app` — Direct C illustration program.
 
-## Geometry for testing
+## 🧩 Integrating to Fluent
 
-Mesh is generated using gmsh, it is recommended to use `uv` for creating a virtual environment and install `gmsh` package.
+Mesh is generated using gmsh by running `python geometry.py` from within the environment.
 
-```bash
-uv venv --python 3.12 .venv
+## Useful Links
 
-# Activate in Windows
-. .venv/Scripts/activate
+- [Fluent WSGG Model](https://ansyshelp.ansys.com/public/account/secured?returnurl=////Views/Secured/corp/v242/en/flu_th/flu_th_mod_var_abs.html)
 
-# Activate in Linux
-source .venv/bin/activate
+> Important: The WSGGM is implemented in a gray approach. If the WSGGM is used with a non-gray model, the absorption coefficient will be the same in all bands. Use DEFINE_GRAY_BAND_ABS_COEFF to change the absorption coefficient per band or per gray gas.
 
-# Install gmsh
-uv pip install gmsh
+- [Fluent UDF Documentation](https://ansyshelp.ansys.com/public/account/secured?returnurl=//Views/Secured/corp/v252/en/flu_udf/flu_udf_ModelSpecificDEFINE.html)
 
-```
-
-Once the virtual environment is activated and `gmsh` is installed, run the following command to generate the mesh from `model` directory:
-
-```bash
-python geometry.py
-```
+- [CFD Online - WSGG in Fluent](https://www.cfd-online.com/Forums/fluent-udf/120780-weighted-sum-gray-gas-model-wsggm-fluent.html)
