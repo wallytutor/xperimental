@@ -1,12 +1,12 @@
 # Makefile for WSL/Linux
 CC = gcc
-CFLAGS = -Wall -Wextra -O2 -fPIC -ansi -pedantic
+CFLAGS = -Wall -Wextra -O2 -fPIC -ansi -pedantic -I../src
 LDFLAGS = -shared
 
-TARGET_LIB = libwsgg_radlib.so
-TARGET_APP = wsgg_app
+TARGET_LIB = libwsgglib.so
+TARGET_APP = wsggapp
 
-SRCS = src/wsgg_radlib_bordbar_2020.c
+SRCS = wsgglib.c
 OBJS = $(SRCS:.c=.o)
 
 all: $(TARGET_LIB) $(TARGET_APP)
@@ -14,10 +14,10 @@ all: $(TARGET_LIB) $(TARGET_APP)
 $(TARGET_LIB): $(OBJS)
 	$(CC) $(LDFLAGS) -o $@ $^ -lm
 
-$(TARGET_APP): src/main.c $(TARGET_LIB)
-	$(CC) $(CFLAGS) -o $@ src/main.c -L. -lwsgg_radlib -lm -Wl,-rpath,.
+$(TARGET_APP): wsggapp.c $(TARGET_LIB)
+	$(CC) $(CFLAGS) -o $@ wsggapp.c -L. -lwsgglib -lm -Wl,-rpath,.
 
-%.o: %.c
+%.o: ../src/%.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
 clean:

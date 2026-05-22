@@ -15,27 +15,25 @@ if (!(Get-Command gcc -ErrorAction SilentlyContinue)) {
 
 # ---------------------------------------------------------------------
 
-Write-Host "Compiling shared library (wsgg_radlib.dll)..." `
+Write-Host "Compiling shared library (wsgglib.dll)..." `
     -ForegroundColor Green
 
-# Compile wsgg_radlib_bordbar_2020.c into wsgg_radlib.dll
-gcc -shared -o wsgg_radlib.dll `
+gcc -shared -o wsgglib.dll `
     -fPIC -O2 -Wall -Wextra -ansi -pedantic `
-    'src/wsgg_radlib_bordbar_2020.c'
+    '../src/wsgglib.c'
 
 # ---------------------------------------------------------------------
 
-Write-Host "Compiling simple application (wsgg_app.exe)..." `
+Write-Host "Compiling simple application (wsggapp.exe)..." `
     -ForegroundColor Green
 
-# Compile main.c and link it dynamically
-gcc -O2 -Wall -Wextra -ansi -pedantic `
-    -o wsgg_app.exe 'src/main.c' -L. -lwsgg_radlib
+gcc -O2 -Wall -Wextra -ansi -pedantic -I'../src' `
+    -o wsggapp.exe 'wsggapp.c' -L. -lwsgglib
 
 # ---------------------------------------------------------------------
 
 Write-Host "Build Succeeded!" -ForegroundColor Green
-Write-Host "To run the application: .\wsgg_app.exe" `
+Write-Host "To run the application: .\wsggapp.exe" `
     -ForegroundColor Yellow
 
 # ---------------------------------------------------------------------

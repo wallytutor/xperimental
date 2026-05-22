@@ -1,16 +1,6 @@
-/*
- * wsgg_radlib_bordbar_2020.h
- *
- * Standalone C89 implementation of the WSGGRadlibBordbar2020 radiation model.
- * Translates the Python class from majordome.engineering into a plain,
- * highly optimized, zero-dependency C module.
- *
- * Designed to be easily used as a User-Defined Function (UDF) or linked in
- * multi-language simulation engines (e.g. via ctypes or direct linking).
- */
-
-#ifndef WSGG_RADLIB_BORDBAR_2020_H
-#define WSGG_RADLIB_BORDBAR_2020_H
+/* wsgglib.h */
+#ifndef WSGGLIB_H
+#define WSGGLIB_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -67,4 +57,4 @@ void wsgg_coefs(
 }
 #endif
 
-#endif /* WSGG_RADLIB_BORDBAR_2020_H */
+#endif /* WSGGLIB_H */

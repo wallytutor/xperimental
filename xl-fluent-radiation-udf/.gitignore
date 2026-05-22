@@ -1,5 +1,6 @@
 # Compiled C library
-wsgg_app*
+sample/wsggapp
+sample/wsggapp.exe
 *.exe
 *.dll
 *.so
@@ -21,3 +22,16 @@ fluent-*.trn
 # UDF related
 udfconfig-host.h
 src/libudf
+
+# Python cache files
+__pycache__/
+*.pyc
+
+# Python install
+*.egg-info/
+*.dist-info/
+build/
+dist/
+
+# Virtual environment
+.venv/

@@ -1,12 +1,6 @@
-/*
- * wsgg_radlib_bordbar_2020.c
- *
- * Standalone C89 implementation of the WSGGRadlibBordbar2020 radiation model.
- * Translates the Python class from majordome.engineering into a plain,
- * highly optimized, zero-dependency C module.
- */
+/* wsgg.c */
 
-#include "wsgg_radlib_bordbar_2020.h"
+#include "wsgglib.h"
 #include <math.h>
 
 #define T_MIN 300.0
@@ -118,14 +112,30 @@ static double get_ccoef_val(int iband, int j, double Mr) {
 }
 
 
-static double evaluate_mr_base(double P_h2o, double P_co2){
+static double evaluate_mr_base(double P_h2o, double P_co2)
+{
     double Mr = P_h2o / (P_co2 + P_TOL);
     return Mr;
 }
 
-static double evaluate_ml_base(double Mr){
+static double evaluate_ml_base(double Mr)
+{
     double Ml = Mr < MR_LIM_INF ? Mr : MR_LIM_INF;
     return Ml;
+}
+
+static double evaluate_mr_bound(double Mr)
+{
+    if (Mr < MR_LIM_CO2) Mr = MR_LIM_CO2;
+    if (Mr > MR_LIM_H2O) Mr = MR_LIM_H2O;
+    return Mr;
+}
+
+static double evaluate_Tr_bound(double T)
+{
+    if (T < T_MIN) T = T_MIN;
+    if (T > T_MAX) T = T_MAX;
+    return T;
 }
 
 /*
@@ -148,21 +158,11 @@ void wsgg_coefs(
     double Mr = evaluate_mr_base(P_h2o, P_co2);
     double Ml = evaluate_ml_base(Mr);
 
-    double Mr_clipped;
-    double T_clipped;
-    double Tr;
+    double Mr_clipped = evaluate_mr_bound(Mr);
+    double T_clipped = evaluate_Tr_bound(T);
+    double Tr = T_clipped / T_RED;
+
     int iband;
-
-    /* Clip Mr for baseline polynomial evaluation */
-    Mr_clipped = Mr;
-    if (Mr_clipped < MR_LIM_CO2) Mr_clipped = MR_LIM_CO2;
-    if (Mr_clipped > MR_LIM_H2O) Mr_clipped = MR_LIM_H2O;
-
-    /* Clip T and normalize to Tr */
-    T_clipped = T;
-    if (T_clipped < T_MIN) T_clipped = T_MIN;
-    if (T_clipped > T_MAX) T_clipped = T_MAX;
-    Tr = T_clipped / T_RED;
 
     for (iband = 0; iband < 5; ++iband) {
         /* 1. Evaluate baseline absorption and weight */
@@ -242,19 +242,16 @@ void wsgg_coefs(
 }
 
 double wsgg_emissivity(
-        double L,
-        double T,
-        double P,
-        double x_h2o,
-        double x_co2,
-        double fvsoot
-    ) {
+    double L,
+    double T,
+    double P,
+    double x_h2o,
+    double x_co2,
+    double fvsoot
+)
+{
     double kabs[5];
     double awts[5];
-    double P_atm = P / 101325.0;
-    double P_h2o = P_atm * x_h2o;
-    double P_co2 = P_atm * x_co2;
-    double pl = (P_h2o + P_co2) * L;
 
     wsgg_coefs(T, P, x_h2o, x_co2, fvsoot, kabs, awts);
 
@@ -262,7 +259,7 @@ double wsgg_emissivity(
         double eps = 0.0;
         int i;
         for (i = 0; i < 5; ++i) {
-            eps += awts[i] * (1.0 - exp(-kabs[i] * pl));
+            eps += awts[i] * (1.0 - exp(-kabs[i] * L));
         }
         return eps;
     }

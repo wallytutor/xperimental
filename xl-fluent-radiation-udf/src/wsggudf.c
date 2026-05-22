@@ -1,46 +1,36 @@
-// udf.c
+/****************************************************************************\
+
+Important
+=========
+- The macros *as written* are compatible with incompressible flow, as we are
+  adding a base reference pressure (see use of P_REFERENCE below). In a
+  compressible case could use the pressure directly in the ideal gas law.
+
+- Here we have hardcoded molecular weights, consider getting the same values
+  from mixture SCM file if consistency is important to you (not really here).
+
+\****************************************************************************/
+
 #include "udf.h"
 #include "materials.h"
-
-// TODO check how to use the awts here, as what is done in the sample
-// below is not compatible with Bordbar (or is it?). Also notice that
-// we should do some caching, as all coefficients are computed at once
-// (or split the evaluation per gray-gas in the library).
-//
-// Also check DEFINE_EMISSIVITY_WEIGHTING_FACTOR for awts, but there
-// is no mention to WSGG there...
-
-// ---------------------------------------------------------------------------
-// DEFINITIONS
-// ---------------------------------------------------------------------------
 
 #define P_REFERENCE 101325.0
 #define R_UNIVERSAL 8.314462
 
-// Define how many gray gases your WSGG model uses
+#define MOLEC_WEIGHT_CO2 0.044010
+#define MOLEC_WEIGHT_H2O 0.018015
+
 #define NUM_GRAY_GASES 5
 
-// UDM Slot Assignments (Indices 0 to 3)
 #define UDM_KABS 0
 #define UDM_AWTS (NUM_GRAY_GASES + UDM_KABS)
 #define UDM_MW   (NUM_GRAY_GASES + UDM_AWTS)
 
-// ---------------------------------------------------------------------------
-// GLOBALS
-// ---------------------------------------------------------------------------
-
 static int last_evaluated_iter = -1;
 
-// ---------------------------------------------------------------------------
-// LOADING
-// ---------------------------------------------------------------------------
-
-DEFINE_EXECUTE_ON_LOADING(
-    macro_loading,
-    libname
-)
+DEFINE_EXECUTE_ON_LOADING(wsgg_load,libname)
 {
-    Message("\nLoading WSGG UDF library\n");
+    Message("\nLoading WSGG UDF library: %s\n", libname);
     Message("Number of gray gases: %d\n", NUM_GRAY_GASES);
 
     Set_User_Memory_Name(UDM_KABS + 0, "Abs. coef. of gray gas 0");
@@ -58,20 +48,11 @@ DEFINE_EXECUTE_ON_LOADING(
     Set_User_Memory_Name(UDM_MW,       "Mixture molecular weight");
 }
 
-// ---------------------------------------------------------------------------
-// MAIN MODEL CALL
-// ---------------------------------------------------------------------------
-
-DEFINE_ADJUST(
-    evaluate_wsgg_model,
-    domain
-)
+DEFINE_ADJUST(wsgg_eval,domain)
 {
     int current_iter;
 
-    // The host doesn't do cell calculations, only nodes do.
     #if !RP_HOST
-    // Safely retrieve current iteration to prevent accidental double-execution.
     current_iter = N_ITER;
 
     if (current_iter != last_evaluated_iter)
@@ -79,10 +60,8 @@ DEFINE_ADJUST(
         Thread *t;
         cell_t c;
 
-        /* Loop through all cell threads in the domain */
         thread_loop_c(t, domain)
         {
-            /* Only process threads that actually hold fluid/solid cells */
             if (FLUID_THREAD_P(t))
             {
                 begin_c_loop(c, t)
@@ -107,10 +86,8 @@ DEFINE_ADJUST(
                     real mw_mix = rho * T * R_UNIVERSAL / (p + P_REFERENCE);
 
                     // Mole fractions from mass fractions
-                    // XXX hardcoded molecular weights, consider getting
-                    // the same values from mixture SCM file!
-                    real x_h2o = C_YI(c, t, ih2o) * mw_mix / 0.018015;
-                    real x_co2 = C_YI(c, t, ico2) * mw_mix / 0.044010;
+                    real x_h2o = C_YI(c, t, ih2o) * mw_mix / MOLEC_WEIGHT_H2O;
+                    real x_co2 = C_YI(c, t, ico2) * mw_mix / MOLEC_WEIGHT_CO2;
 
                     // Call the WSGG coefficient library
                     wsgg_coefs(T, p, x_h2o, x_co2, 0.0, kabs, awts);
@@ -128,68 +105,24 @@ DEFINE_ADJUST(
                     C_UDMI(c, t, UDM_AWTS + 3) = awts[3];
                     C_UDMI(c, t, UDM_AWTS + 4) = awts[4];
 
-                    // Cache mixture molecular weight
                     C_UDMI(c, t, UDM_MW) = mw_mix;
                 }
                 end_c_loop(c, t)
             }
         }
 
-        // Mark this iteration as completed
         last_evaluated_iter = current_iter;
-        // Message("\n[UDF] WSGG coefficients cached for iteration %d.\n", current_iter);
     }
     #endif
 }
 
-// ---------------------------------------------------------------------------
-// WSGGM ABSORPTION COEFFICIENTS FUNCTION
-// ---------------------------------------------------------------------------
-
-DEFINE_WSGGM_ABS_COEFF(
-    user_wsggm_abs_coeff,
-    c,
-    t,
-    xi,
-    p_t,
-    s,
-    soot_conc,
-    Tcell,
-    nb,
-    kabs,
-    ksoot
-)
+DEFINE_WSGGM_ABS_COEFF(wsgg_abs_coeff,c,t,xi,p_t,s,soot_conc,T,nb,kabs,ksoot)
 {
-    Material *m = THREAD_MATERIAL(t);
-    int ico2 = mixture_specie_index(m, "co2");
-    int ih2o = mixture_specie_index(m, "h2o");
-
-    // Partial pressures
-    real p_x = (p_t + P_REFERENCE) * (xi[ico2] + xi[ih2o]);
-
-    // Absorption coefficients
-    *kabs = C_UDMI(c, t, UDM_KABS + nb) * p_x;
-
-    // Soot absorption (set to zero for now)
-    *ksoot =  0.0;
+    *kabs = C_UDMI(c, t, UDM_KABS + nb);
+    *ksoot = 0.0;
 }
 
-// ---------------------------------------------------------------------------
-// EMISSIVITY WEIGHTING FACTORS
-// ---------------------------------------------------------------------------
-
-DEFINE_EMISSIVITY_WEIGHTING_FACTOR(
-    user_wsggm_emiss_weighting,
-    c,
-    t,
-    T,
-    nb,
-    awts
-)
+DEFINE_EMISSIVITY_WEIGHTING_FACTOR(wsgg_emiss_weighting,c,t,T,nb,awts)
 {
     *awts = C_UDMI(c, t, UDM_AWTS + nb);
 }
-
-// ---------------------------------------------------------------------------
-// EOF
-// ---------------------------------------------------------------------------

@@ -1,12 +1,12 @@
 /*
- * main.c
+ * wsggapp.c
  *
- * Simple application program illustrating how to call the wsgg_emissivity
- * function from C.
+ * Simple application program illustrating how to call the
+ * wsgg_emissivity function from C.
  */
 
 #include <stdio.h>
-#include "wsgg_radlib_bordbar_2020.h"
+#include "wsgglib.h"
 
 int main(void) {
     double L = 1.0;

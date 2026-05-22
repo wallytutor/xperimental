@@ -7,12 +7,9 @@ from typing import Any
 import matplotlib.pyplot as plt
 import numpy as np
 from ruamel.yaml import YAML
+from wsgglib import WSGG
 
 HERE = Path(__file__).resolve().parent
-""" Path to the current script directory. """
-
-sys.path.insert(0, str(HERE / "src"))
-from wsgg_radlib import WsggRadlib
 
 
 def format_array(arr: np.ndarray) -> str:
@@ -20,7 +17,7 @@ def format_array(arr: np.ndarray) -> str:
     return "[" + ", ".join([f"{x:.4e}" for x in arr]) + "]"
 
 
-def evaluate_test_case(wsgg: WsggRadlib, data: dict[str, Any]):
+def evaluate_test_case(wsgg: WSGG, data: dict[str, Any]):
     """ Evaluate a single test case. """
     L      = data['L']
     T      = data['T']
@@ -47,26 +44,33 @@ def evaluate_test_case(wsgg: WsggRadlib, data: dict[str, Any]):
     print("-" * 80)
 
 
-def evaluate_validation(wsgg: WsggRadlib):
+def evaluate_validation(wsgg: WSGG):
     """ Sample validation space and display the results."""
     fig, ax = plt.subplots(nrows=1, ncols=2, figsize=(12, 8))
+
+    fig2a = plt.imread(HERE / "fig2a.png")
+    fig2b = plt.imread(HERE / "fig2b.png")
 
     def scan_flue(T, L, *, M):
         x_co2 = 1 / (1 + M)
         return wsgg.emissivity(L, T, 101325.0, M*x_co2, x_co2, 0.0)
 
+    img_extent = [300, 2600, 0.0, 1.0]
+    ax[0].imshow(fig2a, extent=img_extent, aspect="auto", alpha=0.6, zorder=0)
+    ax[1].imshow(fig2b, extent=img_extent, aspect="auto", alpha=0.6, zorder=0)
+
     dry_flue = np.vectorize(lambda T, L: scan_flue(T, L, M=1/8))
     wet_flue = np.vectorize(lambda T, L: scan_flue(T, L, M=1/1))
 
     L = np.asarray([0.01, 0.1, 0.5, 1.0, 3.0, 5.0, 10.0, 20.0, 60.0])
-    T = np.arange(400, 2401, 100)
+    T = np.arange(400, 2501, 100)
     sample = np.meshgrid(T, L)
 
     for n, eps in enumerate(dry_flue(*sample)):
-        ax[0].plot(T, eps, label=f"{L[n]} atm.m")
+        ax[0].plot(T, eps, label=f"{L[n]} atm.m", zorder=2)
 
     for n, eps in enumerate(wet_flue(*sample)):
-        ax[1].plot(T, eps, label=f"{L[n]} atm.m")
+        ax[1].plot(T, eps, label=f"{L[n]} atm.m", zorder=2)
 
     ax[0].grid(True, linestyle=":", alpha=1)
     ax[1].grid(True, linestyle=":", alpha=1)
@@ -80,29 +84,31 @@ def evaluate_validation(wsgg: WsggRadlib):
     ax[0].set_ylabel("Total emissivity")
     ax[1].set_ylabel("Total emissivity")
 
-    ax[0].set_xlim(400, 2400)
-    ax[1].set_xlim(400, 2400)
+    ax[0].set_xlim(300, 2500)
+    ax[1].set_xlim(300, 2500)
     ax[0].set_ylim(0, 1)
     ax[1].set_ylim(0, 1)
 
-    ax[0].set_xticks(np.arange(400, 2401, 400))
-    ax[1].set_xticks(np.arange(400, 2401, 400))
+    ax[0].set_xticks([500, 1000, 1500, 2000, 2500])
+    ax[1].set_xticks([500, 1000, 1500, 2000, 2500])
 
     ax[0].set_yticks(np.arange(0, 1.01, 0.1))
     ax[1].set_yticks(np.arange(0, 1.01, 0.1))
 
-    ax[0].legend(loc=1, fontsize=9)
-    ax[1].legend(loc=1, fontsize=9)
+    ax[0].legend(loc=2, fontsize=6, ncol=3)
+    ax[1].legend(loc=2, fontsize=6, ncol=3)
 
-    plt.show()
+    # plt.show()
+    fig.savefig(HERE / "validate.png")
 
 
 def main():
     """ Main function. """
-    test_cases = YAML().load(open(HERE / "wsgg_check.yaml"))
-    wsgg = WsggRadlib(HERE)
+    wsgg = WSGG()
 
-    for idx, data in enumerate(test_cases, 1):
+    cases = YAML().load(open(HERE / "validate.yaml"))
+
+    for idx, data in enumerate(cases, 1):
         evaluate_test_case(wsgg, data)
 
     evaluate_validation(wsgg)
