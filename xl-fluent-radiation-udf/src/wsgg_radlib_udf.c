@@ -10,29 +10,19 @@
 // Also check DEFINE_EMISSIVITY_WEIGHTING_FACTOR for awts, but there
 // is no mention to WSGG there...
 
-// void wsgg_coefs(
-//     double T,
-//     double P,
-//     double x_h2o,
-//     double x_co2,
-//     double fvsoot,
-//     double *kabs,
-//     double *awts
-//     );
-
-
 // ---------------------------------------------------------------------------
 // DEFINITIONS
 // ---------------------------------------------------------------------------
 
 // Define how many gray gases your WSGG model uses
-#define NUM_GRAY_GASES 4
+#define NUM_GRAY_GASES 5
 
 // UDM Slot Assignments (Indices 0 to 3)
 #define UDM_GAS_0 0
 #define UDM_GAS_1 1
 #define UDM_GAS_2 2
 #define UDM_GAS_3 3
+#define UDM_GAS_4 4
 
 // ---------------------------------------------------------------------------
 // GLOBALS
@@ -53,6 +43,7 @@ DEFINE_EXECUTE_ON_LOADING(report_version, libname)
     Set_User_Memory_Name(UDM_GAS_1, "Abs. coef. of gray gas 1");
     Set_User_Memory_Name(UDM_GAS_2, "Abs. coef. of gray gas 2");
     Set_User_Memory_Name(UDM_GAS_3, "Abs. coef. of gray gas 3");
+    Set_User_Memory_Name(UDM_GAS_4, "Abs. coef. of gray gas 4");
 }
 
 // ---------------------------------------------------------------------------
@@ -81,38 +72,46 @@ DEFINE_ADJUST(evaluate_wsgg_model, domain)
             {
                 begin_c_loop(c, t)
                 {
-                    // 1. Retrieve local field variables needed for WSGG
-                    real T = C_T(c, t); // Cell Temperature
-                    real p = C_P(c, t); // Cell Pressure if needed
+                    // Allocate memory for model coefficients
+                    real kabs[5]  = {0.0, 0.0, 0.0, 0.0, 0.0};
+                    real awts[5]  = {0.0, 0.0, 0.0, 0.0, 0.0};
 
-                    // 2. Placeholders for your heavy simultaneous math output
-                    real kappa_0 = 0.0;
-                    real kappa_1 = 0.0;
-                    real kappa_2 = 0.0;
-                    real kappa_3 = 0.0;
+                    // Retrieve local field variables needed for WSGG
+                    Material *m = THREAD_MATERIAL(t);
+                    int ico2 = mixture_specie_index(m, "co2");
+                    int ih2o = mixture_specie_index(m, "h2o");
+                    real rho = C_R(c, t);
+                    real T = C_T(c, t);
+                    real p = C_P(c, t);
 
-                    // [INSERT YOUR HEAVY WSGG MATHEMATICS HERE]
-                    // Evaluate polynomials using T, species concentrations, etc.
-                    // mapping directly to kappa_0, kappa_1, etc.
+                    // Mixture molecular weight from ideal gas law
+                    // TODO check what units fluent is actually using here
+                    // for setting the correct gas constant...
+                    real mw_mix = rho * T * 8.314462 / (p + 1e-20);
 
-                    // Example dummy math scaling with local temperature
-                    kappa_0 = 0.01 * T;
-                    kappa_1 = 0.02 * T;
-                    kappa_2 = 0.05 * T;
-                    kappa_3 = 0.12 * T;
+                    // Mole fractions from mass fractions
+                    // XXX hardcoded molecular weights, consider getting
+                    // the same values from mixture SCM file!
+                    real x_h2o = C_YI(c, t, ih2o) * mw_mix / 18.015;
+                    real x_co2 = C_YI(c, t, ico2) * mw_mix / 44.01;
 
-                    // 3. Cache the results directly inside the cell's UDM slots
-                    C_UDMI(c, t, UDM_GAS_0) = kappa_0;
-                    C_UDMI(c, t, UDM_GAS_1) = kappa_1;
-                    C_UDMI(c, t, UDM_GAS_2) = kappa_2;
-                    C_UDMI(c, t, UDM_GAS_3) = kappa_3;
+                    // Call the WSGG coefficient library
+                    wsgg_coefs(T, p, x_h2o, x_co2, 0.0, kabs, awts);
+
+                    // Cache the results directly inside the cell's UDM slots
+                    C_UDMI(c, t, UDM_GAS_0) = kabs[0];
+                    C_UDMI(c, t, UDM_GAS_1) = kabs[1];
+                    C_UDMI(c, t, UDM_GAS_2) = kabs[2];
+                    C_UDMI(c, t, UDM_GAS_3) = kabs[3];
+                    C_UDMI(c, t, UDM_GAS_4) = kabs[4];
                 }
                 end_c_loop(c, t)
             }
         }
+
         // Mark this iteration as completed
         last_evaluated_iter = current_iter;
-        Message("\n[UDF] WSGG coefficients cached for iteration %d.\n", current_iter);
+        // Message("\n[UDF] WSGG coefficients cached for iteration %d.\n", current_iter);
     }
     #endif
 }
@@ -127,44 +126,47 @@ DEFINE_WSGGM_ABS_COEFF(user_wsggm_abs_coeff, c, t, xi, p_t, s, soot_conc,
     Material *m = THREAD_MATERIAL(t);
     int ico2 = mixture_specie_index(m, "co2");
     int ih2o = mixture_specie_index(m, "h2o");
-    real CO2_molf, H2O_molf;
-    real k0, k1, k2, k3;
 
-    CO2_molf = xi[ico2];
-    H2O_molf = xi[ih2o];
+    // Partial pressures
+    real p_x = p_t * (xi[ico2] + xi[ih2o]);
 
     switch (nb)
     {
         case 0:
-        {
-            k0 = C_UDMI(c, t, UDM_GAS_0);
-            *ab_wsggm = k0 * (H2O_molf + CO2_molf) * p_t;
-        }
-        break;
+            *ab_wsggm = C_UDMI(c, t, UDM_GAS_0) * p_x;
+            break;
 
         case 1:
-        {
-            k1 = C_UDMI(c, t, UDM_GAS_1);
-            *ab_wsggm = k1 * (H2O_molf + CO2_molf) * p_t;
-        }
-        break;
+            *ab_wsggm = C_UDMI(c, t, UDM_GAS_1) * p_x;
+            break;
 
         case 2:
-        {
-            k2 = C_UDMI(c, t, UDM_GAS_2);
-            *ab_wsggm = k2 * (H2O_molf + CO2_molf) * p_t;
-        }
-        break;
+            *ab_wsggm = C_UDMI(c, t, UDM_GAS_2) * p_x;
+            break;
 
         case 3:
-        {
-            k3 = C_UDMI(c, t, UDM_GAS_3);
-            *ab_wsggm = k3 * (H2O_molf + CO2_molf) * p_t;
-        }
+            *ab_wsggm = C_UDMI(c, t, UDM_GAS_3) * p_x;
+            break;
+
+        case 4:
+            *ab_wsggm = C_UDMI(c, t, UDM_GAS_4) * p_x;
+            break;
     }
 
-    *ab_soot =  0.1;
+    // Soot absorption (set to zero for now)
+    *ab_soot =  0.0;
 }
+
+// ---------------------------------------------------------------------------
+// EMISSIVITY WEIGHTING FACTORS
+// ---------------------------------------------------------------------------
+
+// DEFINE_EMISSIVITY_WEIGHTING_FACTOR(user_wsggm_emiss_weighting, c, t, xi, p_t, s, soot_conc,
+//     Tcell, nb, ab_wsggm, ab_soot, awts)
+// {
+//     // We take our pre-calculated weights from the .udf library
+//     *awts = C_UDMI(c, t, UDM_GAS_0 + nb);
+// }
 
 // ---------------------------------------------------------------------------
 // EOF

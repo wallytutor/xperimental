@@ -1,14 +1,14 @@
-; ---------------------------------------------------------------------------------------------------
+; ----------------------------------------------------------------------------
 ; Set batch options and load mesh
-; ---------------------------------------------------------------------------------------------------
+; ----------------------------------------------------------------------------
 
 /file/import/cgns/mesh geometry.cgns
 /mesh/check
 /mesh/mesh-info 0
 
-; ---------------------------------------------------------------------------------------------------
+; ----------------------------------------------------------------------------
 ; Patch imported types/names
-; ---------------------------------------------------------------------------------------------------
+; ----------------------------------------------------------------------------
 
 ; Global domain
 /mesh/modify-zones/zone-name 1 "fluid" ()
@@ -26,9 +26,9 @@
 /mesh/modify-zones/zone-type 4 "velocity-inlet" ()
 /mesh/modify-zones/zone-type 6 "pressure-outlet" ()
 
-; ---------------------------------------------------------------------------------------------------
+; ----------------------------------------------------------------------------
 ; Basic flow models
-; ---------------------------------------------------------------------------------------------------
+; ----------------------------------------------------------------------------
 
 /define/models/viscous/laminar? yes ()
 
@@ -40,9 +40,9 @@
     yes ; Include diffusion at inlets? [yes] yes
     ()
 
-; ---------------------------------------------------------------------------------------------------
+; ----------------------------------------------------------------------------
 ; Radiation model
-; ---------------------------------------------------------------------------------------------------
+; ----------------------------------------------------------------------------
 
 ; Activate radiation before species!
 /define/models/radiation/discrete-ordinates? yes
@@ -59,9 +59,9 @@
 ; Redundant but make sure there are no reactions:
 /define/models/species/volumetric-reactions? no ()
 
-; ---------------------------------------------------------------------------------------------------
+; ----------------------------------------------------------------------------
 ; Material setup
-; ---------------------------------------------------------------------------------------------------
+; ----------------------------------------------------------------------------
 
 /define/materials/change-create "carbon-monoxide-air" "carbon-monoxide-air"
     yes ; change Mixture Species? [no] yes
@@ -83,9 +83,9 @@
     no  ; change Refractive Index? [no]
     no  ; change Speed of Sound? [no]
 
-; ---------------------------------------------------------------------------------------------------
+; ----------------------------------------------------------------------------
 ; Boundary conditions
-; ---------------------------------------------------------------------------------------------------
+; ----------------------------------------------------------------------------
 
 /define/boundary-conditions/set/velocity-inlet "inlet" ()
     species-in-mole-fractions? yes
@@ -106,19 +106,19 @@
 /define/boundary-conditions/set/wall "wall-upper" ()
     temperature no 1000 ()
 
-; ---------------------------------------------------------------------------------------------------
+; ----------------------------------------------------------------------------
 ; Base solution
-; ---------------------------------------------------------------------------------------------------
+; ----------------------------------------------------------------------------
 
 /solve/initialize/initialize-flow
 /solve/iterate 200
 
-; ---------------------------------------------------------------------------------------------------
-; WIP
-; ---------------------------------------------------------------------------------------------------
+; ----------------------------------------------------------------------------
+; User defined functions (UDF)
+; ----------------------------------------------------------------------------
 
 ; Set number of gray gases
-(define n-gas-gray 4)
+(define n-gas-gray 5)
 
 ; Enable user defined memory (UDM) for the gray gases
 /define/user-defined/user-defined-memory n-gas-gray
@@ -127,21 +127,42 @@
 /define/user-defined/use-built-in-compiler? yes
 
 ; Compile UDF library
-/define/user-defined/compiled-functions
-    compile      ; load/unload/compile?
-    libudf       ; Compiled UDF library name: ["libudf"]
-    yes          ; Continue? [yes]
-    yes          ; Do you want to read new file(y/n): ["y"] y
-    src/udf.c    ; First file name: [""] src/udf.c
-    ""           ; Next  file name: [""]
-    ""           ; Give header file names: First file name: [""]
+/define/user-defined/compiled-functions compile libudf
+    yes                              ; Continue? [yes]
+    yes                              ; Do you want to read new file(y/n): ["y"] y
+    "src/wsgg_radlib_udf.c"          ; First file name: [""] src/udf.c
+    "src/wsgg_radlib_bordbar_2020.c" ; Next  file name: [""]
+    ""                               ; Next  file name: [""]
+    "src/wsgg_radlib_bordbar_2020.h" ; Give header file names: First file name: [""]
+    ""
 
 ; Load UDF library
 /define/user-defined/compiled-functions load libudf
+
+; Unload if needed (before deleting the folder for updates)
+; /define/user-defined/compiled-functions unload libudf
 
 ; Hook UDF to adjust
 /define/user-defined/function-hooks/adjust
     "evaluate_wsgg_model::libudf" ""
 
-; Unload if needed (before deleting the folder for updates)
-; /define/user-defined/compiled-functions unload libudf
+; Material setup (adapt for UDF)
+/define/materials/change-create "carbon-monoxide-air" "carbon-monoxide-air"
+    yes ; change Mixture Species? [no] yes
+    3   ; number of volumetric species [3] 3
+    co2 ; volumetric species 1
+    h2o ; volumetric species 2
+    n2  ; volumetric species 3
+    0   ; number of surface species [0] 0
+    0   ; number of site species [0] 0
+    no  ; change Density? [no]
+    no  ; change Cp (Specific Heat)? [no]
+    no  ; change Thermal Conductivity? [no]
+    no  ; change Viscosity? [no]
+    no  ; change Mass Diffusivity? [no]
+    yes ; change Absorption Coefficient? [no]
+    user-defined-wsggm "user_wsggm_abs_coeff::libudf"
+    no  ; change Scattering Coefficient? [no]
+    no  ; change Scattering Phase Function? [no]
+    no  ; change Refractive Index? [no]
+    no  ; change Speed of Sound? [no]
