@@ -55,7 +55,7 @@ uv venv --python 3.12 .venv
 source .venv/bin/activate
 
 # Install tools
-uv pip install gmsh numpy ruamel-yaml
+uv pip install gmsh numpy matplotlib ruamel-yaml
 ```
 
 ---
