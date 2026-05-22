@@ -30,7 +30,7 @@
 ; Basic flow models
 ; ---------------------------------------------------------------------------------------------------
 
-/define/models/viscous> laminar? yes ()
+/define/models/viscous/laminar? yes ()
 
 /define/models/energy?
     yes ; Enable energy model? [no] yes
