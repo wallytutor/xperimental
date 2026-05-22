@@ -112,3 +112,36 @@
 
 /solve/initialize/initialize-flow
 /solve/iterate 200
+
+; ---------------------------------------------------------------------------------------------------
+; WIP
+; ---------------------------------------------------------------------------------------------------
+
+; Set number of gray gases
+(define n-gas-gray 4)
+
+; Enable user defined memory (UDM) for the gray gases
+/define/user-defined/user-defined-memory n-gas-gray
+
+; Use built-in C++ compiler?
+/define/user-defined/use-built-in-compiler? yes
+
+; Compile UDF library
+/define/user-defined/compiled-functions
+    compile      ; load/unload/compile?
+    libudf       ; Compiled UDF library name: ["libudf"]
+    yes          ; Continue? [yes]
+    yes          ; Do you want to read new file(y/n): ["y"] y
+    src/udf.c    ; First file name: [""] src/udf.c
+    ""           ; Next  file name: [""]
+    ""           ; Give header file names: First file name: [""]
+
+; Load UDF library
+/define/user-defined/compiled-functions load libudf
+
+; Hook UDF to adjust
+/define/user-defined/function-hooks/adjust
+    "evaluate_wsgg_model::libudf" ""
+
+; Unload if needed (before deleting the folder for updates)
+; /define/user-defined/compiled-functions unload libudf
