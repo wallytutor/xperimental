@@ -4,7 +4,9 @@ Implements Weighted Sum of Gray Gases (WSGG) radiation properties model into a s
 
 ## 📁 Source Files
 
-All the source files are located in the [src/](src/) directory:
+All the source files are located in the [src/](src/) directory.
+
+## Library
 
 - [wsgg_radlib_bordbar_2020.h](src/wsgg_radlib_bordbar_2020.h) - Public C89 header exposing the clean function signatures.
 
@@ -12,11 +14,21 @@ All the source files are located in the [src/](src/) directory:
 
 - [wsgg_radlib.py](src/wsgg_radlib.py) - Python interface for evaluating the model using ctypes.
 
+## Examples
+
 - [main.c](src/main.c) - Simple illustrative C program showing direct linkage and execution.
+
+- [udf_sample.c](src/udf_sample.c) - Fluent UDF for WSGG dummy model (for checking compilation and linking).
+
+- [wsgg_radlib_udf.c](src/wsgg_radlib_udf.c) - Fluent UDF for WSGG model.
+
+## Build and Compile
 
 - [Makefile](src/Makefile) - Linux build script.
 
 - [build.ps1](build.ps1) - PowerShell script for compiling shared DLL libraries using Mingw64 GCC.
+
+## Test
 
 - [wsgg_check.py](wsgg_check.py) - Sample Python script for evaluating the model.
 

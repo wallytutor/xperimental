@@ -119,12 +119,13 @@
 
 ; Set number of gray gases
 (define n-gas-gray 5)
+(define n-udm-slots (+ (* 2 n-gas-gray) 1))
 
 ; Enable user defined memory (UDM) for the gray gases
-/define/user-defined/user-defined-memory n-gas-gray
+/define/user-defined/user-defined-memory n-udm-slots
 
-; Use built-in C++ compiler?
-/define/user-defined/use-built-in-compiler? yes
+; Use built-in C++ compiler? NO!
+;; /define/user-defined/use-built-in-compiler? yes
 
 ; Compile UDF library
 /define/user-defined/compiled-functions compile libudf
@@ -146,6 +147,10 @@
 /define/user-defined/function-hooks/adjust
     "evaluate_wsgg_model::libudf" ""
 
+; Hook UDF to emissivity weighting factor
+/define/user-defined/function-hooks/emissivity-weighting-factor
+    "user_wsggm_emiss_weighting::libudf"
+
 ; Material setup (adapt for UDF)
 /define/materials/change-create "carbon-monoxide-air" "carbon-monoxide-air"
     yes ; change Mixture Species? [no] yes
@@ -166,3 +171,7 @@
     no  ; change Scattering Phase Function? [no]
     no  ; change Refractive Index? [no]
     no  ; change Speed of Sound? [no]
+
+; ----------------------------------------------------------------------------
+; EOF
+; ----------------------------------------------------------------------------
