@@ -1,0 +1,382 @@
+{
+  "verso": "1.0",
+  "metadata": {
+    "modified": "2026-04-14T07:23:08.5759077+00:00",
+    "defaultKernel": "fsharp",
+    "activeLayout": "notebook"
+  },
+  "cells": [
+    {
+      "id": "7f6cf20f-4587-4599-90a9-84162576fd00",
+      "type": "markdown",
+      "source": "# Diffusion in solids"
+    },
+    {
+      "id": "38b8a604-0d73-44f9-b28b-8df2d8023908",
+      "type": "markdown",
+      "source": "## Load toolbox"
+    },
+    {
+      "id": "0ce44f66-ebff-4c94-a698-932dfee7b9c2",
+      "type": "code",
+      "language": "fsharp",
+      "source": "#load \u0022loader.fsx\u0022\r\n\r\nopen System.IO\r\nopen System.Diagnostics\r\nopen Diffusion.Numerics\r\nopen Diffusion.Core.FunctionTypes\r\nopen Diffusion.Core.FvmDomain1D\r\nopen Diffusion.Core.DiffusionData1D\r\nopen Diffusion.Core.Carbonitriding1D\r\nopen Diffusion.Core.GnuplotHandler\r\nopen Diffusion.Slycke.DiffusionPlainFeCN"
+    },
+    {
+      "id": "7dd7c410-c0cf-47a6-a9d3-726ddbe5dae4",
+      "type": "code",
+      "language": "fsharp",
+      "source": "let outputDirectory = Path.Combine(__SOURCE_DIRECTORY__, \u0022sample-01\u0022)\r\nDirectory.CreateDirectory(outputDirectory) |\u003E ignore\r\n"
+    },
+    {
+      "id": "72da3389-26f6-44a3-83bd-3772ff464c10",
+      "type": "markdown",
+      "source": "## About grid types"
+    },
+    {
+      "id": "e58e1295-bdd0-494b-8db0-047f7bf96e5c",
+      "type": "code",
+      "language": "fsharp",
+      "source": "let gridLin = ImmersedNodeDomain1D.CreateFromLinearSpace 1.0 10 None\r\nlet gridGeo = ImmersedNodeDomain1D.CreateFromGeometricSpace 1.0 10 0.1 0.2 None"
+    },
+    {
+      "id": "9f32d78e-0522-4561-bb11-88b4f0b0a0ab",
+      "type": "code",
+      "language": "fsharp",
+      "source": "printfn \u0022LINEAR GRID:\\n%s\\n\u0022 (gridLin.PrintInfo ())"
+    },
+    {
+      "id": "b7cf6a26-6178-4937-9fc2-e754ae19f7f9",
+      "type": "code",
+      "language": "fsharp",
+      "source": "printfn \u0022GEOMETRIC GRID:\\n%s\\n\u0022 (gridGeo.PrintInfo ())"
+    },
+    {
+      "id": "b93576e7-cce4-4834-9941-1c2bd28d2c29",
+      "type": "markdown",
+      "source": "## Minimal example"
+    },
+    {
+      "id": "74d8393c-563b-4f15-9b4e-740043102626",
+      "type": "code",
+      "language": "fsharp",
+      "source": "// Depth of the material semi-thickness (m):\r\nlet d = 0.001\r\n\r\n// Number of cells in the FVM domain:\r\nlet n = 100\r\n\r\n// Create domain and instantiate model:\r\nlet domain = ImmersedNodeDomain1D.CreateFromLinearSpace d n None\r\nlet model = SlyckeModel.Default\r\n"
+    },
+    {
+      "id": "9a390625-9fb3-49bb-8952-43f2ffd4e691",
+      "type": "code",
+      "language": "fsharp",
+      "source": "let initFig09 =\r\n    { new IDiffusion1DSolverInit with\r\n        member _.Grid              = domain\r\n        member _.Relaxation        = 1.0\r\n        member _.MaxNonlinIter     = 100\r\n        member _.AbsoluteTolerance = 1e-10\r\n        member _.RelativeTolerance = 1e-08\r\n        member _.TimePoints        = arangeInclusive 0.0 7200.0 10.0\r\n        member _.YcField           = Array.init n (fun _ -\u003E 0.0005)\r\n        member _.YnField           = Array.init n (fun _ -\u003E 0.0000)\r\n        member _.YInf (t:float) : float array  = [| 0.0078; 0.0040 |]\r\n        member _.HInf (t:float) : float array  = [| 1.0e-05; 1.0e-05 |]\r\n        member _.Temperature (t:float) : float = 870.0 \u002B 273.15 }"
+    },
+    {
+      "id": "e9b489dc-8586-405f-9651-04b1f9b3e8a7",
+      "type": "code",
+      "language": "fsharp",
+      "source": "let solver = runSimulation initFig09 model (Some 72)\r\nlet yc, yn = solver.GetReinitialization ()"
+    },
+    {
+      "id": "813b6775-b877-4581-a661-a783188bd2fc",
+      "type": "code",
+      "language": "fsharp",
+      "source": "let data = [\r\n    domain.Interior |\u003E Array.map (fun x -\u003E x * 1e3);\r\n    yc |\u003E Array.map (fun x -\u003E x * 1e2);\r\n    yn |\u003E Array.map (fun x -\u003E x * 1e2)\r\n]"
+    },
+    {
+      "id": "2d7a63a5-9801-43a7-b803-f60d514be935",
+      "type": "code",
+      "language": "fsharp",
+      "source": "let ls1 = { Color = \u0022#000000\u0022; Width = 1.0; PointType = 1; DashType = 1 }\r\nlet ls2 = { Color = \u0022#FF0000\u0022; Width = 1.0; PointType = 1; DashType = 1 }\r\n\r\nGnuplotInteractive ()\r\n    |\u003E\u003E pngCairoOutput $\u0022{outputDirectory}/mwe\u0022 None\r\n    |\u003E\u003E \u0022set title \u0027Carbonitriding for 2 h at 1143.15 K\u0027\u0022\r\n    |\u003E\u003E \u0022set xlabel \u0027Depth (mm)\u0027\u0022\r\n    |\u003E\u003E \u0022set ylabel \u0027Composition (%wt)\u0027\u0022\r\n    |\u003E\u003E ls1.ToString 1\r\n    |\u003E\u003E ls2.ToString 2\r\n    |\u003E\u003E dataBlock \u0022xy\u0022 data\r\n    |\u003E\u003E \u0022set grid\u0022\r\n    |\u003E\u003E \u0022set key right top\u0022\r\n    |\u003E\u003E \u0022set xrange [0:1]\u0022\r\n    |\u003E\u003E \u0022set yrange [0:1]\u0022\r\n    |\u003E\u003E \u0022plot $xy using 1:2 with lines linestyle 1 title \u0027Carbon\u0027,\\\\\u0022\r\n    |\u003E\u003E \u0022     $xy using 1:3 with lines linestyle 2 title \u0027Nitrogen\u0027\u0022\r\n    |\u003E ignore"
+    },
+    {
+      "id": "c58e86eb-0a16-407c-887d-71873342774f",
+      "type": "markdown",
+      "source": "## Reference cases"
+    },
+    {
+      "id": "c8fe5e2d-f29c-4e8a-9c3b-54a20a9a106d",
+      "type": "code",
+      "language": "fsharp",
+      "source": "\r\n// Depth of the material semi-thickness (m):\r\nlet d = 0.002\r\n\r\n// Number of cells in the FVM domain:\r\nlet n = 50\r\n\r\n// Create domain and instantiate model:\r\nlet domain = ImmersedNodeDomain1D.CreateFromGeometricSpace d n 10.0e-06 50.0e-06 None\r\nlet model = SlyckeModel.Default"
+    },
+    {
+      "id": "83a0be41-26f1-4770-887a-ffbfa25451e2",
+      "type": "code",
+      "language": "fsharp",
+      "source": "let carburizingAuto =\r\n    let YcIni = 0.0023\r\n    let step1 = 2.0 * 3600.0\r\n    let step2 = 3.0 * 3600.0 \u002B step1\r\n\r\n    // Add 5 min for cooling before quenching:\r\n    let duration = step2 \u002B 300.0\r\n\r\n    let YInf = Function(fun t -\u003E\r\n            if   t \u003C step1 then [| 0.011; 0.000 |]  // Carburizing phase\r\n            elif t \u003C step2 then [| 0.000; 0.000 |]  // Nitriding phase\r\n            else                [| 0.000; 0.000 |]) // Cooling phase\r\n\r\n    let HInf = Function(fun t -\u003E\r\n            if   t \u003C step1 then [| 1.0e-06; 0.0e-06 |]\r\n            elif t \u003C step2 then [| 1.0e-09; 0.0e-06 |]\r\n            else                [| 0.0e-09; 0.0e-06 |])\r\n\r\n    YInf, HInf, duration, YcIni"
+    },
+    {
+      "id": "e20b3460-8e04-4fce-99e0-7215728aff79",
+      "type": "code",
+      "language": "fsharp",
+      "source": "let carburizingAero =\r\n    let YcIni = 0.0016\r\n    let step1 = 2.0 * 3600.0\r\n    let step2 = 1.0 * 3600.0 \u002B step1\r\n    let step3 = 3.0 * 3600.0 \u002B step2\r\n\r\n    // Add 5 min for cooling before quenching:\r\n    let duration = step3 \u002B 300.0\r\n\r\n    let YInf = Function(fun t -\u003E\r\n            if   t \u003C step1 then [| 0.011; 0.000 |]   // Carburizing phase\r\n            elif t \u003C step2 then [| 0.000; 0.000 |]   // Transition phase\r\n            elif t \u003C step3 then [| 0.000; 0.000 |]   // Nitriding phase\r\n            else                [| 0.000; 0.000 |])  // Cooling phase\r\n\r\n    let HInf = Function(fun t -\u003E\r\n            if   t \u003C step1 then [| 1.0e-06; 0.0e-06 |]\r\n            elif t \u003C step2 then [| 1.0e-09; 0.0e-06 |]\r\n            elif t \u003C step3 then [| 1.0e-09; 0.0e-06 |]\r\n            else                [| 0.0e-09; 0.0e-06 |])\r\n\r\n    YInf, HInf, duration, YcIni"
+    },
+    {
+      "id": "4e6ba82e-0670-450e-adf9-53f99bcd106e",
+      "type": "code",
+      "language": "fsharp",
+      "source": "let carbonitridingAuto =\r\n    let YcIni = 0.0023\r\n\r\n    let step1 = 2.0 * 3600.0\r\n    let step2 = 3.0 * 3600.0 \u002B step1\r\n\r\n    // Add 5 min for cooling before quenching:\r\n    let duration = step2 \u002B 300.0\r\n\r\n    let YInf = Function(fun t -\u003E\r\n            if   t \u003C step1 then [| 0.011; 0.000 |]  // Carburizing phase\r\n            elif t \u003C step2 then [| 0.000; 0.009 |]  // Nitriding phase\r\n            else                [| 0.000; 0.000 |]) // Cooling phase\r\n\r\n    let HInf = Function(fun t -\u003E\r\n            if   t \u003C step1 then [| 1.0e-06; 0.0e-06 |]\r\n            elif t \u003C step2 then [| 7.0e-09; 1.0e-06 |]\r\n            else                [| 0.0e-09; 0.0e-06 |])\r\n\r\n    YInf, HInf, duration, YcIni"
+    },
+    {
+      "id": "1db287c1-11b9-47ee-a02c-b16d0641dcc7",
+      "type": "code",
+      "language": "fsharp",
+      "source": "let carbonitridingAero =\r\n    let YcIni = 0.0016\r\n\r\n    let step1 = 2.0 * 3600.0\r\n    let step2 = 1.0 * 3600.0 \u002B step1\r\n    let step3 = 3.0 * 3600.0 \u002B step2\r\n\r\n    // Add 5 min for cooling before quenching:\r\n    let duration = step3 \u002B 300.0\r\n\r\n    let YInf = Function(fun t -\u003E\r\n            if   t \u003C step1 then [| 0.011; 0.000 |]   // Carburizing phase\r\n            elif t \u003C step2 then [| 0.000; 0.000 |]   // Transition phase\r\n            elif t \u003C step3 then [| 0.000; 0.004 |]   // Nitriding phase\r\n            else                [| 0.000; 0.000 |])  // Cooling phase\r\n\r\n    let HInf = Function(fun t -\u003E\r\n            if   t \u003C step1 then [| 1.0e-06; 0.0e-06 |]\r\n            elif t \u003C step2 then [| 4.0e-09; 0.0e-06 |]\r\n            elif t \u003C step3 then [| 4.0e-09; 1.0e-06 |]\r\n            else                [| 0.0e-09; 0.0e-06 |])\r\n\r\n    YInf, HInf, duration, YcIni"
+    },
+    {
+      "id": "58544e95-a351-4896-b294-b2f3128a6008",
+      "type": "code",
+      "language": "fsharp",
+      "source": "let makeProcess (YInf, HInf, duration, YcIni) :  IDiffusion1DSolverInit =\r\n    let opts =\r\n        { NumericalOptions.Default with\r\n            Relaxation = 1.0\r\n            MaxNonlinIter = 200\r\n            RelativeTolerance = 1e-06\r\n            AbsoluteTolerance = 1e-09 }\r\n\r\n    simulationSetup\r\n        domain               // domain\r\n        duration             // total time\r\n        20.0                 // time step\r\n        (Uniform YcIni)      // initial yc field\r\n        (Uniform 0.0000)     // initial yn field\r\n        YInf                 // environment potential f(t)\r\n        HInf                 // environment mass transfer coefficient f(t)\r\n        (Constant 1173.15)   // temperature (constant in this case)\r\n        (Some opts)"
+    },
+    {
+      "id": "bc427639-ace0-4ea8-b5c9-48d61d0a2cbf",
+      "type": "code",
+      "language": "fsharp",
+      "source": "let plotProcess\r\n  (solver: CarbonitridingSolver)\r\n  (title: string)\r\n  (saveAs: string) : unit =\r\n    let zc = domain.Interior\r\n    let yc, yn = solver.GetReinitialization ()\r\n\r\n    let data = [zc |\u003E Array.map (fun x -\u003E x * 1e3);\r\n                yc |\u003E Array.map (fun x -\u003E x * 1e2);\r\n                yn |\u003E Array.map (fun x -\u003E x * 1e2)]\r\n\r\n    let ls1 = { Color = \u0022#000000\u0022; Width = 1.0; PointType = 1; DashType = 1 }\r\n    let ls2 = { Color = \u0022#FF0000\u0022; Width = 1.0; PointType = 1; DashType = 1 }\r\n\r\n    GnuplotInteractive ()\r\n        |\u003E\u003E pngCairoOutput $\u0022{outputDirectory}/ref-{saveAs}\u0022 None\r\n        |\u003E\u003E $\u0022set title \u0027{title}\u0027\u0022\r\n        |\u003E\u003E \u0022set xlabel \u0027Depth (mm)\u0027\u0022\r\n        |\u003E\u003E \u0022set ylabel \u0027Composition (%wt)\u0027\u0022\r\n        |\u003E\u003E ls1.ToString 1\r\n        |\u003E\u003E ls2.ToString 2\r\n        |\u003E\u003E dataBlock \u0022xy\u0022 data\r\n        |\u003E\u003E \u0022set grid\u0022\r\n        |\u003E\u003E \u0022set key right top\u0022\r\n        |\u003E\u003E \u0022set xrange [0:2]\u0022\r\n        |\u003E\u003E \u0022set yrange [0:1]\u0022\r\n        |\u003E\u003E \u0022plot $xy using 1:2 with lines linestyle 1 title \u0027Carbon\u0027,\\\\\u0022\r\n        |\u003E\u003E \u0022     $xy using 1:3 with lines linestyle 2 title \u0027Nitrogen\u0027\u0022\r\n        |\u003E ignore"
+    },
+    {
+      "id": "8a77223d-d17f-47f2-9b1e-d79565498039",
+      "type": "code",
+      "language": "fsharp",
+      "source": "let manageSimulation inputs title saveAs =\r\n    let setup = makeProcess inputs\r\n    let solver = runSimulation setup model (Some 360)\r\n    plotProcess solver title saveAs"
+    },
+    {
+      "id": "f7cdaad9-002a-4e08-ac0a-f851a79ce354",
+      "type": "code",
+      "language": "fsharp",
+      "source": "manageSimulation\r\n    carburizingAuto\r\n    \u0022Carburizing (23MnCrMo5)\u0022 \r\n    \u0022carburizing-auto\u0022"
+    },
+    {
+      "id": "713a344a-f684-47e7-a8f8-ef7ca9acb9b2",
+      "type": "code",
+      "language": "fsharp",
+      "source": "manageSimulation\r\n    carburizingAero\r\n    \u0022Carburizing (16NiCrMo13)\u0022\r\n    \u0022carburizing-aero\u0022"
+    },
+    {
+      "id": "8ffb4956-f6f3-4253-8b03-558270f3c697",
+      "type": "code",
+      "language": "fsharp",
+      "source": "manageSimulation\r\n    carbonitridingAuto\r\n    \u0022Carbonitriding (23MnCrMo5)\u0022\r\n    \u0022carbonitriding-auto\u0022"
+    },
+    {
+      "id": "7ea8c2bb-ef49-4315-90e7-f40d975f9da6",
+      "type": "code",
+      "language": "fsharp",
+      "source": "manageSimulation\r\n    carbonitridingAero\r\n    \u0022Carbonitriding (16NiCrMo13)\u0022\r\n    \u0022carbonitriding-aero\u0022"
+    },
+    {
+      "id": "1df9675f-d42c-4b3e-a17a-e8886b783786",
+      "type": "markdown",
+      "source": "## Stepwise solution"
+    },
+    {
+      "id": "93be2399-ad4d-4d2c-9936-c43b9bbcfb25",
+      "type": "code",
+      "language": "fsharp",
+      "source": "// Depth of the material semi-thickness (m):\r\nlet d = 0.002\r\n\r\n// Number of cells in the FVM domain:\r\nlet n = 100\r\n\r\n// Create domain and instantiate model:\r\nlet domain = ImmersedNodeDomain1D.CreateFromLinearSpace d n None\r\nlet model = SlyckeModel.Default"
+    },
+    {
+      "id": "9d54df37-a3ae-4cf3-b598-2db7ecf7dc60",
+      "type": "code",
+      "language": "fsharp",
+      "source": "let makeStep\r\n  (Yc: CellField)\r\n  (Yn: CellField)\r\n  (YInf: TimeValue\u003Cfloat array\u003E)\r\n  (HInf: TimeValue\u003Cfloat array\u003E)\r\n  (duration: float) : IDiffusion1DSolverInit =\r\n    let opts =\r\n        { NumericalOptions.Default with\r\n            Relaxation = 1.0\r\n            MaxNonlinIter = 100\r\n            RelativeTolerance = 1e-08\r\n            AbsoluteTolerance = 1e-10 }\r\n\r\n    simulationSetup\r\n        domain\r\n        (duration * 3600.0)  // total time\r\n        10.0                  // time step\r\n        Yc                   // initial yc field\r\n        Yn                   // initial yn field\r\n        YInf                 // environment potential f(t)\r\n        HInf                 // environment mass transfer coefficient f(t)\r\n        (Constant 1173.15)   // temperature (constant in this case)\r\n        (Some opts)"
+    },
+    {
+      "id": "4e9ab1a7-3e3e-4e2d-908a-fd55fdee7e79",
+      "type": "code",
+      "language": "fsharp",
+      "source": "let nextStep\r\n  (last: CarbonitridingSolver)\r\n  (YInf: TimeValue\u003Cfloat array\u003E)\r\n  (HInf: TimeValue\u003Cfloat array\u003E)\r\n  (duration: float)  =\r\n    let yc, yn = last.GetReinitialization ()\r\n    makeStep (PerCell yc) (PerCell yn) YInf HInf duration"
+    },
+    {
+      "id": "60505013-9cbd-47c0-8755-fce1a210fe39",
+      "type": "code",
+      "language": "fsharp",
+      "source": "let carburize =\r\n    makeStep\r\n        (Uniform 0.0016)                   // Yc initial condition\r\n        (Uniform 0.0000)                   // Yn initial condition\r\n        (Constant [| 1.1e-02; 0.0e\u002B00 |])  // Environment potential\r\n        (Constant [| 1.0e-06; 0.0e\u002B00 |])  // Mass transfer coefficients\r\n        2.0"
+    },
+    {
+      "id": "e43248f0-4d03-4ae1-be46-f6f54535b8ef",
+      "type": "code",
+      "language": "fsharp",
+      "source": "let sw = Stopwatch.StartNew()\r\n\r\nlet carburizingSolution =\r\n    runSimulation carburize model (Some 360)\r\n\r\nlet homogeneizationSolution =\r\n    runSimulation\r\n        (nextStep carburizingSolution\r\n            (Constant [| 0.0e\u002B00; 0.0e\u002B00 |])  // Environment potential\r\n            (Constant [| 0.0e\u002B00; 0.0e\u002B00 |])  // Mass transfer coefficients\r\n            1.0)\r\n        model (Some 360)\r\n\r\nlet nitridingSolution =\r\n    runSimulation\r\n        (nextStep homogeneizationSolution\r\n            (Constant [| 0.0e\u002B00; 4.0e-03 |])  // Environment potential\r\n            (Constant [| 0.0e\u002B00; 1.0e-06 |])  // Mass transfer coefficients\r\n            3.0)\r\n        model (Some 360)\r\n\r\nsw.Stop()\r\nprintfn $\u0022Elapsed time: {sw.Elapsed.TotalMilliseconds} ms\u0022"
+    },
+    {
+      "id": "ce44e39b-964d-46dc-82f7-e883d02499dd",
+      "type": "code",
+      "language": "fsharp",
+      "source": "let zc = domain.Interior |\u003E Array.map (fun x -\u003E x * 1e3)\r\nlet yc1, yn1 = carburizingSolution.GetReinitialization ()\r\nlet yc2, yn2 = homogeneizationSolution.GetReinitialization ()\r\nlet yc3, yn3 = nitridingSolution.GetReinitialization ()\r\n\r\nlet toPct x = x * 1e2\r\nlet data1 = [zc; yc1 |\u003E Array.map toPct; yn1 |\u003E Array.map toPct]\r\nlet data2 = [zc; yc2 |\u003E Array.map toPct; yn2 |\u003E Array.map toPct]\r\nlet data3 = [zc; yc3 |\u003E Array.map toPct; yn3 |\u003E Array.map toPct]\r\n\r\nlet ls1 = { Color = \u0022#FF0000\u0022; Width = 1.0; PointType = 1; DashType = 1 }\r\nlet ls2 = { Color = \u0022#000000\u0022; Width = 1.0; PointType = 1; DashType = 3 }\r\nlet ls3 = { Color = \u0022#000000\u0022; Width = 1.0; PointType = 1; DashType = 2 }\r\nlet ls4 = { Color = \u0022#000000\u0022; Width = 1.0; PointType = 1; DashType = 1 }\r\n\r\nGnuplotInteractive ()\r\n    |\u003E\u003E pngCairoOutput $\u0022{outputDirectory}/multistep\u0022 None\r\n    |\u003E\u003E \u0022set title \u0027Carbonitriding Intermediate Steps\u0027\u0022\r\n    |\u003E\u003E \u0022set xlabel \u0027Depth (mm)\u0027\u0022\r\n    |\u003E\u003E \u0022set ylabel \u0027Composition (%wt)\u0027\u0022\r\n    |\u003E\u003E \u0022set grid\u0022\r\n    |\u003E\u003E \u0022set key right top\u0022\r\n    |\u003E\u003E \u0022set xrange [0:2.0]\u0022\r\n    |\u003E\u003E \u0022set yrange [0:1.2]\u0022\r\n    |\u003E\u003E ls1.ToString 1\r\n    |\u003E\u003E ls2.ToString 2\r\n    |\u003E\u003E ls3.ToString 3\r\n    |\u003E\u003E ls4.ToString 4\r\n    |\u003E\u003E dataBlock \u0022xy1\u0022 data1\r\n    |\u003E\u003E dataBlock \u0022xy2\u0022 data2\r\n    |\u003E\u003E dataBlock \u0022xy3\u0022 data3\r\n    |\u003E\u003E \u0022plot $xy1 using 1:2 with lines linestyle 2 title \u0027C (carburizing)\u0027,\\\\\u0022\r\n    |\u003E\u003E \u0022     $xy2 using 1:2 with lines linestyle 3 title \u0027C (homogeneization)\u0027,\\\\\u0022\r\n    |\u003E\u003E \u0022     $xy3 using 1:2 with lines linestyle 4 title \u0027C (nitriding)\u0027,\\\\\u0022\r\n    |\u003E\u003E \u0022     $xy3 using 1:3 with lines linestyle 1 title \u0027N (nitriding)\u0027\u0022\r\n    |\u003E ignore"
+    }
+  ],
+  "layouts": {
+    "dashboard": {
+      "cells": {
+        "7f6cf20f-4587-4599-90a9-84162576fd00": {
+          "row": 0,
+          "col": 0,
+          "width": 6,
+          "height": 4,
+          "visible": true
+        },
+        "38b8a604-0d73-44f9-b28b-8df2d8023908": {
+          "row": 0,
+          "col": 6,
+          "width": 6,
+          "height": 4,
+          "visible": true
+        },
+        "0ce44f66-ebff-4c94-a698-932dfee7b9c2": {
+          "row": 4,
+          "col": 0,
+          "width": 6,
+          "height": 4,
+          "visible": true
+        },
+        "b93576e7-cce4-4834-9941-1c2bd28d2c29": {
+          "row": 4,
+          "col": 6,
+          "width": 6,
+          "height": 4,
+          "visible": true
+        },
+        "74d8393c-563b-4f15-9b4e-740043102626": {
+          "row": 8,
+          "col": 0,
+          "width": 6,
+          "height": 4,
+          "visible": true
+        },
+        "9a390625-9fb3-49bb-8952-43f2ffd4e691": {
+          "row": 8,
+          "col": 6,
+          "width": 6,
+          "height": 4,
+          "visible": true
+        },
+        "e9b489dc-8586-405f-9651-04b1f9b3e8a7": {
+          "row": 12,
+          "col": 0,
+          "width": 6,
+          "height": 4,
+          "visible": true
+        },
+        "813b6775-b877-4581-a661-a783188bd2fc": {
+          "row": 12,
+          "col": 6,
+          "width": 6,
+          "height": 4,
+          "visible": true
+        },
+        "2d7a63a5-9801-43a7-b803-f60d514be935": {
+          "row": 16,
+          "col": 0,
+          "width": 6,
+          "height": 4,
+          "visible": true
+        },
+        "c58e86eb-0a16-407c-887d-71873342774f": {
+          "row": 16,
+          "col": 6,
+          "width": 6,
+          "height": 4,
+          "visible": true
+        },
+        "c8fe5e2d-f29c-4e8a-9c3b-54a20a9a106d": {
+          "row": 20,
+          "col": 0,
+          "width": 6,
+          "height": 4,
+          "visible": true
+        },
+        "83a0be41-26f1-4770-887a-ffbfa25451e2": {
+          "row": 20,
+          "col": 6,
+          "width": 6,
+          "height": 4,
+          "visible": true
+        },
+        "e20b3460-8e04-4fce-99e0-7215728aff79": {
+          "row": 24,
+          "col": 0,
+          "width": 6,
+          "height": 4,
+          "visible": true
+        },
+        "4e6ba82e-0670-450e-adf9-53f99bcd106e": {
+          "row": 24,
+          "col": 6,
+          "width": 6,
+          "height": 4,
+          "visible": true
+        },
+        "1db287c1-11b9-47ee-a02c-b16d0641dcc7": {
+          "row": 28,
+          "col": 0,
+          "width": 6,
+          "height": 4,
+          "visible": true
+        },
+        "58544e95-a351-4896-b294-b2f3128a6008": {
+          "row": 28,
+          "col": 6,
+          "width": 6,
+          "height": 4,
+          "visible": true
+        },
+        "bc427639-ace0-4ea8-b5c9-48d61d0a2cbf": {
+          "row": 32,
+          "col": 0,
+          "width": 6,
+          "height": 4,
+          "visible": true
+        },
+        "8a77223d-d17f-47f2-9b1e-d79565498039": {
+          "row": 32,
+          "col": 6,
+          "width": 6,
+          "height": 4,
+          "visible": true
+        },
+        "f7cdaad9-002a-4e08-ac0a-f851a79ce354": {
+          "row": 36,
+          "col": 0,
+          "width": 6,
+          "height": 4,
+          "visible": true
+        },
+        "713a344a-f684-47e7-a8f8-ef7ca9acb9b2": {
+          "row": 36,
+          "col": 6,
+          "width": 6,
+          "height": 4,
+          "visible": true
+        },
+        "8ffb4956-f6f3-4253-8b03-558270f3c697": {
+          "row": 40,
+          "col": 0,
+          "width": 6,
+          "height": 4,
+          "visible": true
+        },
+        "7ea8c2bb-ef49-4315-90e7-f40d975f9da6": {
+          "row": 40,
+          "col": 6,
+          "width": 6,
+          "height": 4,
+          "visible": true
+        },
+        "1df9675f-d42c-4b3e-a17a-e8886b783786": {
+          "row": 44,
+          "col": 0,
+          "width": 6,
+          "height": 4,
+          "visible": true
+        },
+        "93be2399-ad4d-4d2c-9936-c43b9bbcfb25": {
+          "row": 44,
+          "col": 6,
+          "width": 6,
+          "height": 4,
+          "visible": true
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,6 @@
+# Compiled code
+**/bin
+**/obj
+
+# Generated results
+**/*.png
