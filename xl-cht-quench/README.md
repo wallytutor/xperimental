@@ -2,6 +2,18 @@
 
 - [Elmer Docs](https://www.nic.funet.fi/pub/sci/physics/elmer/doc/)
 
+## Generating the note
+
+```bash
+uv venv
+
+uv pip install -r requirements.txt
+
+$env:QUARTO_PYTHON = ".\venv\Scripts\python.exe"
+
+quarto render report --to pdf
+```
+
 ## Running the Simulation
 
 ```powershell

@@ -1,2 +1,2 @@
-majordome[full] @ file:../../majordome
+majordome @ file:../../majordome
 screeninfo

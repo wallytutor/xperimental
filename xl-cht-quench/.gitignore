@@ -10,3 +10,10 @@ model*/log.*
 model*/init.result.*
 model*/convergence.dat
 report.pdf
+
+*.quarto_ipynb
+*.aux
+*.out
+*.log
+*.tex
+*.toc

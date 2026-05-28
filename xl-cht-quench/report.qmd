@@ -41,8 +41,8 @@ import pandas as pd
 import sympy as sp
 
 from sympy import latex as ltx
-from majordome_utilities.plotting import plot2d
-from majordome_utilities.common import sci_to_latex_decimal
+from majordome.utilities import plot2d
+from majordome.utilities import sci_to_latex_decimal
 ```
 
 ```{python, title="SymPy Symbols"}
@@ -525,17 +525,16 @@ $$
 ```{python, title="Limits of integration"}
 #| jupyter: {source_hidden: true}
 %%md
-<div style="border-left: 4px solid #4a90e2; padding: 0.5em 1em;">
-<strong>A note about integration limits</strong>
+::: {.callout-note title="A note about integration limits"}
 
 An important subtlety that needs to be discussed here and will impact the averaging process. Notice that nothing has been said about the domain of {phi}. As we assume a defective filling it is always possible to concentrate the molten material in the center of the mould without touching the walls, so its lower bound is zero; on the other hand, there is a maximum width that can be filled so that the whole thickness is occupied and that happens when {d_def} vanishes. It is obvious that under this constraint we should find a value that matches the fractional filling inside the mould:
+
 
 $$
 \phi_{max} = {ltx(_phi_max):s} = {ltx(Phi):s}
 $$
 
-</div>
-<br>
+:::
 ```
 
 ```{python, title="Analytical integration"}
@@ -653,7 +652,7 @@ If fact, as one might expect, the thermal conductivity of the pourred material c
 #| fig-cap: Actual thermal conductivity of the material in terms of temperature
 #| fig-align: center
 #| out-width: 50%
-df = pd.read_csv("model/data/k.dat", sep=r"\s+", header=None)
+df = pd.read_csv("data/k.dat", sep=r"\s+", header=None)
 v_T = df[0].to_numpy()
 v_k = df[1].to_numpy()
 
