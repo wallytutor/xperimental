@@ -20,6 +20,7 @@ ollama serve
 # ollama pull qwen2.5-coder:7b
 
 ollama pull qwen3.6:35b
+# ollama pull starcoder2:15b
 ```
 
 Now we can sync the project and run the model (there is a delay for loading the model in memory the first time - and if it times-out).
