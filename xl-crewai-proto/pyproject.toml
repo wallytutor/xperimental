@@ -1,0 +1,10 @@
+[project]
+name = "xl-crewai-proto"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "crewai[google-genai,tools]>=1.15.10",
+    "ipython>=9.16.0",
+]
