@@ -6,8 +6,8 @@ from crewai_tools import ScrapeWebsiteTool
 
 SERVER = "http://localhost:11434"
 
-MODEL_RESEARCHER = "ollama/qwen3.6:35b"
-MODEL_CODER      = "ollama/qwen3.6:35b"
+MODEL_RESEARCHER = "ollama/magistral:24b"
+MODEL_CODER      = "ollama/qwen2.5-coder:14b"
 
 MAIN_TASK = """
 Solve 1-D heat equation for constant material properties. The left side \
@@ -49,16 +49,16 @@ def main():
         contexts=[research_task]
     )
 
-    postprocessing_task = Task(
-        description="Modify the Python script to include post-processing",
-        expected_output=(
-            "You do not modify what has been conceived to solve the problem"
-            " and add the required post-processing utilities to the model."
-            " Most of the time this is a matter of using matplotlib."
-        ),
-        agent=coder,
-        contexts=[research_task, coding_task]
-    )
+    # postprocessing_task = Task(
+    #     description="Modify the Python script to include post-processing",
+    #     expected_output=(
+    #         "You do not modify what has been conceived to solve the problem"
+    #         " and add the required post-processing utilities to the model."
+    #         " Most of the time this is a matter of using matplotlib."
+    #     ),
+    #     agent=coder,
+    #     contexts=[research_task, coding_task]
+    # )
 
     crew = Crew(
         agents  = [
@@ -68,7 +68,7 @@ def main():
         tasks   = [
             research_task,
             coding_task,
-            postprocessing_task
+            # postprocessing_task
         ],
         process = Process.sequential,
         verbose = True,
@@ -77,9 +77,7 @@ def main():
     result = crew.kickoff()
 
     print(result.raw)
-
     from IPython import embed; embed(colors="Linux")
-
 
 
 def fluid_mechanics_researcher(llm):

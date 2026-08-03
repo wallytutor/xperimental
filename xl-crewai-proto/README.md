@@ -16,11 +16,16 @@ So far you should have an [Ollama](https://docs.ollama.com/) server instance run
 $env:OLLAMA_KV_CACHE_TYPE = 'Q4_K_M'
 ollama serve
 
+# Coder:
+ollama pull qwen2.5-coder:14b
+# ollama pull qwen3.6:35b
+# ollama pull codestral:22b  # Does not support tools
+
 # For smaller GPUs peak this:
 # ollama pull qwen2.5-coder:7b
 
-ollama pull qwen3.6:35b
-# ollama pull starcoder2:15b
+# Researcher:
+ollama pull magistral:24b
 ```
 
 Now we can sync the project and run the model (there is a delay for loading the model in memory the first time - and if it times-out).
