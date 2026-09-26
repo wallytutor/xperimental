@@ -82,17 +82,19 @@ fn handle_client(client_stream: TcpStream, target_addr: Arc<String>) {
 
 fn main() {
     let args: Vec<String> = env::args().collect();
-    let config_path = if args.len() > 1 {
-        args[1].clone()
-    } else {
-        "config.json".to_string()
-    };
+    if args.len() < 2 {
+        let prog = args.first().map(|s| s.as_str()).unwrap_or("xl-ssh-tunneling");
+        eprintln!("Error: No configuration file provided.");
+        eprintln!("Usage: {} <config_file.json>", prog);
+        process::exit(1);
+    }
 
-    let config = match load_config(&config_path) {
+    let config_path = &args[1];
+
+    let config = match load_config(config_path) {
         Ok(cfg) => cfg,
         Err(err) => {
             eprintln!("Error loading config from '{}': {}", config_path, err);
-            eprintln!("Usage: {} [config_file.json]", args.first().map(|s| s.as_str()).unwrap_or("xl-ssh-tunneling"));
             process::exit(1);
         }
     };

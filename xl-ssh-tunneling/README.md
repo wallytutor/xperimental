@@ -16,7 +16,7 @@ Because it is more powerful/convenient, you connect from **PC1** to **PC3** thro
 
 ## Configuration
 
-The application reads network connection parameters from a JSON configuration file (by default `config.json` in the current working directory, or a path provided as a command-line argument):
+The application reads network connection parameters from a JSON configuration file provided as a command-line argument:
 
 ```json
 {
@@ -50,13 +50,10 @@ The resulting standalone binary will be located at:
 
 ## Usage
 
-Run the executable by passing an optional configuration file path:
+Run the executable by passing the path to the configuration file:
 
 ```sh
-# Using default config.json
-./target/release/xl-ssh-tunneling
-
-# Or specifying custom configuration file
 ./target/release/xl-ssh-tunneling path/to/config.json
 ```
+
 
